@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>17番の先にある部屋 実装版</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --text:#f4f7fb; --sub:rgba(244,247,251,.76); --line:rgba(255,255,255,.14);
+  --panel:rgba(9,12,18,.92); --panel2:rgba(255,255,255,.08); --accent:#cfe2ff;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0c1118;color:var(--text);font-family:'Noto Sans JP',sans-serif}
+body{touch-action:manipulation}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+#topbar{position:absolute;top:calc(8px + var(--safe-top));left:calc(8px + var(--safe-left));right:calc(8px + var(--safe-right));z-index:20;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.chip{pointer-events:auto;padding:8px 10px;border-radius:12px;background:rgba(9,12,18,.58);border:1px solid var(--line);backdrop-filter:blur(8px);font-size:12px;color:var(--sub)}
+#sceneWrap{position:relative;flex:0 0 68%;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.08)}
+#bg{position:absolute;inset:0}
+#bgOverlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.26) 60%,rgba(0,0,0,.55) 100%)}
+#spotLayer{position:absolute;inset:0;z-index:2}
+.spot{position:absolute;display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);border-radius:999px;color:#fff;font-size:12px}
+.spot.used{opacity:.3;pointer-events:none}
+.spot::after{content:'';position:absolute;inset:-6px;border:1px solid rgba(255,255,255,.12);border-radius:inherit;animation:pulse 1.8s infinite}
+@keyframes pulse{0%{transform:scale(.96);opacity:.6}70%{transform:scale(1.08);opacity:0}100%{opacity:0}}
+#spotHelp{position:absolute;left:14px;right:14px;bottom:14px;padding:10px 12px;border-radius:14px;background:rgba(9,12,18,.58);border:1px solid rgba(255,255,255,.08);font-size:12px;color:var(--sub);z-index:3}
+#textbox{position:relative;flex:1;padding:14px calc(14px + var(--safe-right)) calc(14px + var(--safe-bottom)) calc(14px + var(--safe-left));background:var(--panel);display:flex;flex-direction:column;justify-content:space-between}
+#speaker{font-size:13px;font-weight:700;color:#cfe2ff;min-height:20px;margin-bottom:6px}
+#text{font-size:16px;line-height:1.72;white-space:pre-wrap;min-height:132px}
+#sub{font-size:12px;color:var(--sub);min-height:18px;margin-top:8px}
+#choices{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+button.choice,button.small,button.main{width:100%;border:none;border-radius:14px;background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:13px 14px;text-align:left;font-size:15px}
+button.choice:active,button.small:active,button.main:active{background:rgba(207,226,255,.16)}
+#footerBtns{display:flex;gap:8px;margin-top:10px}
+button.small{font-size:13px;padding:10px 12px;text-align:center}
+#advance{position:absolute;right:16px;bottom:calc(12px + var(--safe-bottom));font-size:12px;color:var(--sub)}
+
+#heatHud{position:absolute;top:calc(52px + var(--safe-top));right:calc(10px + var(--safe-right));z-index:21;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+#heatLabel{font-size:11px;color:var(--sub);padding:4px 8px;border-radius:999px;background:rgba(9,12,18,.58);border:1px solid var(--line)}
+#heatGauge{width:10px;height:108px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);overflow:hidden;display:flex;align-items:flex-end}
+#heatFill{width:100%;height:40%;background:linear-gradient(180deg,rgba(194,216,255,.72),rgba(255,187,120,.85));transition:height .22s ease}
+.cardchoice{padding:14px 14px 12px;border-radius:18px;background:rgba(255,255,255,.06)}
+.cardchoice .cardmeta{display:block;font-size:11px;color:var(--sub);margin-top:6px}
+.truthBlock{padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+.truthBlock:first-child{border-top:none}
+.truthTitle{font-size:12px;color:var(--sub);margin-bottom:6px}
+.truthLine{font-size:13px;line-height:1.6;padding:6px 0}
+.tagRow{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 10px}
+.tag{font-size:11px;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--text)}
+body.focus-room #topbar, body.focus-room #heatHud, body.focus-room #footerBtns{display:none!important}
+body.focus-room #sceneWrap{flex-basis:78%}
+body.focus-room #textbox{padding-top:22px}
+body.focus-return #topbar, body.focus-return #heatHud, body.focus-return #footerBtns{display:none!important}
+body.focus-return #sceneWrap{flex-basis:74%}
+body.focus-return #textbox{padding-top:18px}
+body.focus-final #topbar, body.focus-final #heatHud, body.focus-final #footerBtns, body.focus-final #advance{opacity:0!important;pointer-events:none!important}
+body.focus-final #sceneWrap{flex-basis:70%}
+body.focus-final #textbox{padding-top:26px}
+body.focus-final #speaker{display:none}
+body.focus-final #text{max-width:85%;margin:0 auto;line-height:1.8;text-align:justify;min-height:0}
+body.focus-final #sub{display:none}
+body.focus-final-question #topbar, body.focus-final-question #heatHud, body.focus-final-question #footerBtns, body.focus-final-question #advance{opacity:0!important;pointer-events:none!important}
+body.focus-final-question #sceneWrap{flex-basis:72%}
+body.focus-final-question #textbox{justify-content:center;padding-top:0}
+body.focus-final-question #speaker, body.focus-final-question #sub, body.focus-final-question #choices{display:none!important}
+body.focus-final-question #text{max-width:82%;margin:0 auto;min-height:0;line-height:1.95;text-align:center;transform:translateY(12vh)}
+#title{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#141d2b 0%,#0c1118 100%)}
+#titleCard{width:min(560px,100%);padding:26px 18px;text-align:center}
+#titleCard h1{margin:0 0 10px;font-size:28px}
+#titleCard p{margin:0 0 18px;color:var(--sub);line-height:1.7}
+.titleActions{display:flex;flex-direction:column;gap:10px}
+#modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:60;padding:16px}
+#modal.show{display:flex}
+#modalCard{width:min(520px,100%);background:rgba(10,14,22,.97);border:1px solid var(--line);border-radius:22px;padding:16px}
+#modalTitle{font-size:15px;font-weight:700;margin-bottom:12px}
+.slot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+.slot:first-of-type{border-top:none}
+.slotMeta{font-size:12px;color:var(--sub)}
+.slotActions{display:flex;gap:8px}
+.slotActions button{padding:8px 10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--text)}
+.flag{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;color:var(--sub)}
+.truthLine.claimRejectedLine{background:#120c0c;color:#f2d7d7;text-decoration:line-through 2px #9e4444;padding:6px 8px;border-radius:8px;border:1px solid rgba(158,68,68,.45);letter-spacing:.02em}
+.truthLine.claimCoreLine{background:rgba(226,186,86,.12);border:1px solid rgba(226,186,86,.28);padding:6px 8px;border-radius:8px}
+.truthLine.chainLine{background:rgba(102,153,220,.10);border:1px solid rgba(102,153,220,.28);padding:6px 8px;border-radius:8px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div class="chip" id="sceneLabel">単一路線版</div>
+    <div class="chip" id="flagLabel">VOICE 0 / TIME 0 / LOST 0 / RETURN 0</div>
+  </div>
+  <div id="heatHud">
+    <div id="heatLabel">適</div>
+    <div id="heatGauge"><div id="heatFill"></div></div>
+  </div>
+  <div id="sceneWrap">
+    <div id="bg"></div>
+    <div id="bgOverlay"></div>
+    <div id="spotLayer"></div>
+    <div id="spotHelp" class="hidden"></div>
+  </div>
+  <div id="textbox">
+    <div>
+      <div id="speaker"></div>
+      <div id="text"></div>
+      <div id="sub"></div>
+      <div id="choices"></div>
+    </div>
+    <div id="footerBtns">
+      <button class="small" id="saveBtn">セーブ</button>
+      <button class="small" id="loadBtn">ロード</button>
+      <button class="small" id="flagsBtn">記録</button>
+      <button class="small" id="titleBtn">タイトル</button>
+    </div>
+    <div id="advance">タップで次へ</div>
+  </div>
+</div>
+
+<div id="title">
+  <div id="titleCard">
+    <h1>17番の先にある部屋</h1>
+    <p>去年の文化祭のあと、この高校には返せなかった気持ちだけが居残っている。<br>17番の鍵、昼休みの放送にまぎれる一文、少しだけずれる日付。ホームルームでは何も起きていない顔をしているのに、放課後になると全部が存在しない文化祭準備室を指し始める。</p>
+    <div class="titleActions">
+      <button class="main" id="newGameBtn">はじめから</button>
+      <button class="main" id="loadFromTitleBtn">ロード</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal">
+  <div id="modalCard">
+    <div id="modalTitle"></div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+
+const SAVE_KEY = 'single_route_preparation_room_v22_1_final';
+const BG = {
+  classroom:'linear-gradient(180deg,#627d9b 0%,#4f667f 34%,#334152 34.2%,#202934 68%,#151c24 100%)',
+  board:'linear-gradient(180deg,#7a8698 0%,#667384 30%,#414b58 62%,#181d24 100%)',
+  corridor:'linear-gradient(180deg,#8a96a7 0%,#707b8d 26%,#46505d 58%,#171c23 100%)',
+  broadcast:'linear-gradient(180deg,#6d648a 0%,#564f70 34%,#312c3f 62%,#171520 100%)',
+  winter:'linear-gradient(180deg,#7b8aa5 0%,#65748f 28%,#424d60 64%,#181d27 100%)',
+  shrine:'linear-gradient(180deg,#a47762 0%,#855d4f 34%,#503730 64%,#231915 100%)',
+  valentine:'linear-gradient(180deg,#8f6b77 0%,#755762 30%,#493842 62%,#1b171d 100%)',
+  room:'linear-gradient(180deg,#8f7b68 0%,#715f52 34%,#3f312a 68%,#171210 100%)',
+  ending:'linear-gradient(180deg,#7988a2 0%,#66748c 32%,#404958 66%,#171c25 100%)'
+};
+
+const $ = s => document.querySelector(s);
+const els = {
+  bg: $('#bg'), sceneLabel: $('#sceneLabel'), flagLabel: $('#flagLabel'),
+  speaker: $('#speaker'), text: $('#text'), sub: $('#sub'), choices: $('#choices'),
+  spotLayer: $('#spotLayer'), spotHelp: $('#spotHelp'), advance: $('#advance'),
+  modal: $('#modal'), modalTitle: $('#modalTitle'), modalBody: $('#modalBody'), title: $('#title'),
+  heatLabel: $('#heatLabel'), heatFill: $('#heatFill')
+};
+
+function defaultState(){
+  return {
+    sceneId:'ch01_intro',
+    idx:0,
+    sceneData:{},
+    flags:{
+      REL_REN:0, REL_MINORI:0, REL_TORU:0, REL_NANAO:0,
+      MYS_VOICE:0, MYS_TIME:0, MYS_LOST:0,
+      ACT_SPEAK:0, ACT_RETURN:0, ACT_LOOK:0,
+      RETURN_TARGETS:0,
+      CLUE_KEY_SWAP:0, CLUE_NOTE_SYMBOL:0, CLUE_MEMO_HAND:0, CLUE_NANAO_DOOR:0, CLUE_OLD_EMA:0, CLUE_STICKER:0, CLUE_KEYBOX_PAPER:0, CLUE_RETURN_CHAIN:0
+    },
+    airHeat:2,
+    clues:{found:[], linked:[], weak:[], history:[]},
+    linkDraftFirst:null,
+    linkDraftSecond:null,
+    linkDraftTruth:null,
+    lastLinkedTruth:null,
+    lastLinkResolution:null,
+    lastReturnAttempt:null,
+    returnHistory:[],
+    hypotheses:{},
+    hypothesisEvidence:{},
+    hypothesisStrength:{},
+    rebuttals:{},
+    hypothesisBoards:{},
+    rejectedClaims:[],
+    proofLog:[],
+    chainState:[]
+  };
+}
+
+const HYPOTHESIS_DB = {
+  ch01:{label:'17番の不在の意味', correct:'protect', options:[
+    {id:'mistake', text:'ただの管理ミス'},
+    {id:'conceal', text:'誰かが意図的に隠している'},
+    {id:'protect', text:'返せなかったものを守るための差し替え'}
+  ]},
+  ch02:{label:'戻ってきた落とし物の意味', correct:'stuck', options:[
+    {id:'clerical', text:'ただの事務ミス'},
+    {id:'stuck', text:'持ち主の事情で返りきれないものがある'},
+    {id:'prank', text:'誰かの悪ふざけ'}
+  ]},
+  ch03:{label:'旧校舎通路の扉の意味', correct:'entrance', options:[
+    {id:'storage', text:'古い倉庫の名残'},
+    {id:'entrance', text:'返せなかったものへ通じる入口'},
+    {id:'damage', text:'雨漏りで使えなくなっただけ'}
+  ]},
+  ch04:{label:'原稿にない一文の意味', correct:'leak', options:[
+    {id:'bug', text:'機材か録音の不具合'},
+    {id:'leak', text:'言えなかった感情が声へ漏れている'},
+    {id:'adlib', text:'ミノリの無意識のアドリブ'}
+  ]},
+  ch05:{label:'クリスマス前の中断の意味', correct:'many', options:[
+    {id:'random', text:'たまたま空気が悪かった'},
+    {id:'many', text:'渡しかけて止まった人間が複数いる'},
+    {id:'romance', text:'一人の恋愛感情が中心だ'}
+  ]},
+  ch06:{label:'去年の痕跡の意味', correct:'carry', options:[
+    {id:'coincidence', text:'ただの偶然の一致'},
+    {id:'carry', text:'去年の未返却が今年へ持ち越されている'},
+    {id:'superstition', text:'神社の噂が広がっただけ'}
+  ]},
+  ch07:{label:'バレンタインの未返却の意味', correct:'visible', options:[
+    {id:'festival', text:'行事の気まずさが出ただけ'},
+    {id:'visible', text:'未返却の感情が最も可視化された日'},
+    {id:'private', text:'一人だけの問題だ'}
+  ]}
+};
+
+const HYPOTHESIS_EVIDENCE_DB = {
+  ch01:[
+    {id:'keybox_mark', text:'17番に返却済みの印だけがあった', available:g=>seenIn('ch01_explore','keybox')},
+    {id:'shelf_swap', text:'別の番号の鍵が17番の位置に戻されていた', available:g=>seenIn('ch01_explore','shelf')},
+    {id:'blank_tag', text:'拾得場所だけ空白のタグが残っていた', available:g=>seenIn('ch01_explore','tag')}
+  ],
+  ch02:[
+    {id:'wrist_text', text:'リストバンドの内側に小さな文字があった', available:g=>seenIn('ch02_explore','case')},
+    {id:'symbol_line', text:'返却記録に記号だけの行があった', available:g=>seenIn('ch02_explore','note')},
+    {id:'returned_again', text:'返却済みの英単語帳が一覧へ戻っていた', available:g=>seenIn('ch02_explore','list')}
+  ],
+  ch03:[
+    {id:'foot_vanish', text:'足跡が途中で消えていた', available:g=>seenIn('ch03_explore','foot')},
+    {id:'door_water', text:'扉の下だけ水がたまっていた', available:g=>seenIn('ch03_explore','door')},
+    {id:'wall_removed', text:'壁の表示だけが剥がされていた', available:g=>seenIn('ch03_explore','wall')}
+  ],
+  ch04:[
+    {id:'memo_line', text:'放送前に手書きメモを見た', available:g=>seenIn('ch04_explore','memo')},
+    {id:'wrong_number', text:'付箋の教室番号が一文字違っていた', available:g=>seenIn('ch04_explore','sticky')},
+    {id:'spoke_up', text:'原稿にない一文だとミノリへ伝えた', available:g=>g.state.ch04Choice==='minori'}
+  ],
+  ch05:[
+    {id:'extra_wrap', text:'紙袋の底に宛名のない包みが残っていた', available:g=>seenIn('ch05_explore','bag')},
+    {id:'ren_hand', text:'レンは何かを出しかけてやめた', available:g=>seenIn('ch05_explore','hand')},
+    {id:'self_return', text:'自分から返す側に回った', available:g=>g.state.flags.ACT_RETURN>=1}
+  ],
+  ch06:[
+    {id:'cut_ema', text:'消された絵馬の前半だけが残っていた', available:g=>seenIn('ch06_explore','ema')},
+    {id:'last_year_board', text:'去年の掲示に同じ文字があった', available:g=>seenIn('ch06_explore','board')},
+    {id:'asked_toru', text:'去年も来たのかとトオルに聞いた', available:g=>g.state.ch06Choice==='toru'}
+  ],
+  ch07:[
+    {id:'nameless_box', text:'宛名のない包みを見た', available:g=>seenIn('ch07_explore','gift')},
+    {id:'blackboard_trace', text:'黒板の消された文字を読んだ', available:g=>seenIn('ch07_explore','chalk')},
+    {id:'follow_laugh', text:'笑ってごまかした側を追った', available:g=>g.state.ch07Choice==='voice'}
+  ]
+};
+
+const HYPOTHESIS_SUPPORT = {
+  ch01:{mistake:['keybox_mark'], conceal:['shelf_swap'], protect:['shelf_swap','blank_tag']},
+  ch02:{clerical:['returned_again'], stuck:['symbol_line','wrist_text'], prank:['returned_again']},
+  ch03:{storage:['wall_removed'], entrance:['foot_vanish','door_water'], damage:['door_water']},
+  ch04:{bug:['wrong_number'], leak:['memo_line','spoke_up'], adlib:['spoke_up']},
+  ch05:{random:['extra_wrap'], many:['extra_wrap','ren_hand','self_return'], romance:['extra_wrap']},
+  ch06:{coincidence:['cut_ema'], carry:['last_year_board','cut_ema','asked_toru'], superstition:['last_year_board']},
+  ch07:{festival:['nameless_box'], visible:['nameless_box','blackboard_trace','follow_laugh'], private:['nameless_box']}
+};
+
+const MINORI_BOARD_TEMPLATE = {
+  id:'ch05_minori',
+  subject:'ミノリの包み',
+  phase:'open',
+  activeClaimIds:['cliche_love','avoidance_of_definition','not_her_own'],
+  rejectedClaimIds:[],
+  confirmedClaimId:null,
+  appliedKeys:[],
+  claims:{
+    cliche_love:{id:'cliche_love',label:'ただの恋愛感情',short:'渡せなかっただけ',confidence:45,noise:10,state:'active',supports:[],conflicts:[],notes:[]},
+    avoidance_of_definition:{id:'avoidance_of_definition',label:'関係が決まることへの忌避',short:'渡すことで関係が固定するのを恐れた',confidence:25,noise:25,state:'active',supports:[],conflicts:[],notes:[]},
+    not_her_own:{id:'not_her_own',label:'そもそもミノリ自身のものではない',short:'誰かの未返却を預かっているだけ',confidence:15,noise:30,state:'active',supports:[],conflicts:[],notes:[]}
+  }
+};
+
+function ensureMinoriBoard(){
+  if(!app.state.hypothesisBoards.ch05_minori){
+    app.state.hypothesisBoards.ch05_minori = clone(MINORI_BOARD_TEMPLATE);
+  }
+  return app.state.hypothesisBoards.ch05_minori;
+}
+function minoriBoard(){ return ensureMinoriBoard(); }
+function applyMinoriEffect(target,type,confidenceDelta,noiseDelta,evidenceId,note){
+  const board = ensureMinoriBoard();
+  const claim = board.claims[target];
+  if(!claim || claim.state==='rejected' || claim.state==='confirmed') return;
+  claim.confidence = Math.max(0, Math.min(100, claim.confidence + confidenceDelta));
+  claim.noise = Math.max(0, Math.min(100, claim.noise + noiseDelta));
+  if(type==='support' && evidenceId && !claim.supports.includes(evidenceId)) claim.supports.push(evidenceId);
+  if(type==='conflict' && evidenceId && !claim.conflicts.includes(evidenceId)) claim.conflicts.push(evidenceId);
+  if(note && !claim.notes.includes(note)) claim.notes.push(note);
+  if(claim.confidence <= 10) claim.state='weakened';
+}
+function applyMinoriBoardEvidenceOnce(key){
+  const board = ensureMinoriBoard();
+  if(board.appliedKeys.includes(key)) return;
+  board.appliedKeys.push(key);
+  if(key==='ch05_bag'){
+    applyMinoriEffect('cliche_love','support',10,-2,'extra_wrap','包みが残っているだけなら、よくある渡しそびれにも見える。');
+    applyMinoriEffect('not_her_own','support',12,-4,'extra_wrap','宛名がないことで、ミノリ自身のものではない可能性も残る。');
+  }
+  if(key==='ch05_hand'){
+    applyMinoriEffect('avoidance_of_definition','support',12,-5,'ren_hand','渡しかけて止まる動きが一人ではなかった。');
+  }
+  if(key==='ch06_toru'){
+    applyMinoriEffect('cliche_love','conflict',-18,8,'asked_toru','最初から渡すつもりの持ち方には見えなかった。');
+    applyMinoriEffect('avoidance_of_definition','support',14,-3,'asked_toru','渡すこと自体を決めきれていないように見えた。');
+  }
+  if(key==='ch06_amulet'){
+    applyMinoriEffect('avoidance_of_definition','support',8,-2,'cut_ema','誰かのために選ばれたものは、渡せば関係を決めてしまう。');
+  }
+  if(key==='ch07_gift'){
+    applyMinoriEffect('not_her_own','support',9,-3,'nameless_box','宛名のなさが再び現れた。持ち主と運び手が分かれている可能性がある。');
+  }
+  if(key==='ch07_voice'){
+    applyMinoriEffect('cliche_love','conflict',-22,10,'follow_laugh','笑いでごまかされた気配まで含めると、一人の恋愛だけでは狭すぎる。');
+    applyMinoriEffect('avoidance_of_definition','support',16,-5,'blackboard_trace','消された文字も、定義される直前で引き返した跡に見える。');
+  }
+  app.state.proofLog.push({type:'minori_evidence', key});
+}
+function minoriClaimsView(){
+  const board = ensureMinoriBoard();
+  return Object.values(board.claims).map(claim=>({
+    id:claim.id,
+    label:claim.label,
+    short:claim.short,
+    confidence:claim.confidence,
+    noise:claim.noise,
+    state:claim.state,
+    styleClass: claim.state==='rejected' ? 'claim-rejected' : (claim.noise>=35 ? 'claim-noisy' : (claim.confidence>=55 ? 'claim-strong' : 'claim-normal'))
+  }));
+}
+function rejectMinoriClaim(claimId){
+  const board = ensureMinoriBoard();
+  const claim = board.claims[claimId];
+  if(!claim || claim.state==='rejected') return;
+  claim.state='rejected';
+  board.rejectedClaimIds.push(claimId);
+  board.activeClaimIds = board.activeClaimIds.filter(id=>id!==claimId);
+  app.state.rejectedClaims.push({boardId:board.id, claimId, at:Date.now()});
+  app.state.proofLog.push({type:'reject', board:'ch05_minori', claimId});
+  board.phase='refuted';
+}
+function minoriCoreAlive(){
+  const board = ensureMinoriBoard();
+  return board.activeClaimIds.includes('avoidance_of_definition');
+}
+function minoriKilledCliche(){
+  const board = ensureMinoriBoard();
+  return board.rejectedClaimIds.includes('cliche_love');
+}
+function minoriRejectedTruth(){
+  const board = ensureMinoriBoard();
+  return board.rejectedClaimIds.includes('avoidance_of_definition');
+}
+function canProveMinori(){
+  const board = ensureMinoriBoard();
+  const core = board.claims.avoidance_of_definition;
+  const strongEvidence = core.supports.includes('asked_toru') && core.supports.includes('blackboard_trace');
+  return minoriCoreAlive() && minoriKilledCliche() && strongEvidence;
+}
+
+const REN_BOARD_TEMPLATE = {
+  id:'ch05_ren',
+  subject:'レンの冗談',
+  phase:'open',
+  activeClaimIds:['easygoing_only','protective_kindness','fear_of_silence'],
+  rejectedClaimIds:[],
+  confirmedClaimId:null,
+  appliedKeys:[],
+  claims:{
+    easygoing_only:{id:'easygoing_only',label:'軽い性格なだけ',short:'深い意味はない',confidence:42,noise:12,state:'active',supports:[],conflicts:[],notes:[]},
+    protective_kindness:{id:'protective_kindness',label:'場を守るための優しさ',short:'空気を壊さないための冗談',confidence:34,noise:18,state:'active',supports:[],conflicts:[],notes:[]},
+    fear_of_silence:{id:'fear_of_silence',label:'沈黙への恐怖と対話の切断',short:'気まずさを終わらせるための防衛',confidence:16,noise:28,state:'active',supports:[],conflicts:[],notes:[]}
+  }
+};
+
+function ensureRenBoard(){
+  if(!app.state.hypothesisBoards.ch05_ren){
+    app.state.hypothesisBoards.ch05_ren = clone(REN_BOARD_TEMPLATE);
+  }
+  return app.state.hypothesisBoards.ch05_ren;
+}
+function renBoard(){ return ensureRenBoard(); }
+function applyRenEffect(target,type,confidenceDelta,noiseDelta,evidenceId,note){
+  const board = ensureRenBoard();
+  const claim = board.claims[target];
+  if(!claim || claim.state==='rejected' || claim.state==='confirmed') return;
+  claim.confidence = Math.max(0, Math.min(100, claim.confidence + confidenceDelta));
+  claim.noise = Math.max(0, Math.min(100, claim.noise + noiseDelta));
+  if(type==='support' && evidenceId && !claim.supports.includes(evidenceId)) claim.supports.push(evidenceId);
+  if(type==='conflict' && evidenceId && !claim.conflicts.includes(evidenceId)) claim.conflicts.push(evidenceId);
+  if(note && !claim.notes.includes(note)) claim.notes.push(note);
+  if(claim.confidence <= 10) claim.state='weakened';
+}
+function applyRenBoardEvidenceOnce(key){
+  const board = ensureRenBoard();
+  if(board.appliedKeys.includes(key)) return;
+  board.appliedKeys.push(key);
+  if(key==='ch05_base'){
+    applyRenEffect('protective_kindness','support',12,-3,'ren_lightens_air','レンはまず場を軽くし、誰かが完全に沈まないようにしている。');
+  }
+  if(key==='ch06_minori'){
+    applyRenEffect('protective_kindness','support',14,-4,'minori_calls_it_helpful','ミノリは、レンはいつも空気を助けていると見る。');
+  }
+  if(key==='ch06_toru'){
+    applyRenEffect('protective_kindness','conflict',-16,8,'toru_says_ends_too_fast','優しさだけなら、こんなに早く会話を切らない。');
+    applyRenEffect('fear_of_silence','support',18,-6,'toru_says_ends_too_fast','レンは重くなる前に、対話そのものを終わらせている。');
+  }
+  if(key==='ch07_voice'){
+    applyRenEffect('easygoing_only','conflict',-20,10,'nanao_points_out_timing','軽い性格ではなく、切り替える位置を意識している。');
+    applyRenEffect('fear_of_silence','support',20,-5,'nanao_points_out_timing','沈黙に入る前で必ず冗談へ切り替えている。');
+  }
+  if(key==='ch09_shelf'){
+    applyRenEffect('protective_kindness','conflict',-18,10,'shelf_joked_instead','「冗談にした」は守ったのではなく終わらせた痕跡に近い。');
+    applyRenEffect('fear_of_silence','support',24,-8,'shelf_joked_instead','レンの冗談は、場を温めるためではなく、沈黙に入る前に話を殺す動きに見える。');
+  }
+  app.state.proofLog.push({type:'ren_evidence', key});
+}
+function renClaimsView(){
+  const board = ensureRenBoard();
+  return Object.values(board.claims).map(claim=>({
+    id:claim.id,
+    label:claim.label,
+    short:claim.short,
+    confidence:claim.confidence,
+    noise:claim.noise,
+    state:claim.state,
+    styleClass: claim.state==='rejected' ? 'claim-rejected' : (claim.noise>=35 ? 'claim-noisy' : (claim.confidence>=55 ? 'claim-strong' : 'claim-normal'))
+  }));
+}
+function rejectRenClaim(claimId){
+  const board = ensureRenBoard();
+  const claim = board.claims[claimId];
+  if(!claim || claim.state==='rejected') return;
+  claim.state='rejected';
+  board.rejectedClaimIds.push(claimId);
+  board.activeClaimIds = board.activeClaimIds.filter(id=>id!==claimId);
+  app.state.rejectedClaims.push({boardId:board.id, claimId, at:Date.now()});
+  app.state.proofLog.push({type:'reject', board:'ch05_ren', claimId});
+  board.phase='refuted';
+}
+function renCoreAlive(){
+  const board = ensureRenBoard();
+  return board.activeClaimIds.includes('fear_of_silence');
+}
+function renKilledShallow(){
+  const board = ensureRenBoard();
+  return board.rejectedClaimIds.includes('easygoing_only');
+}
+function renKilledTrap(){
+  const board = ensureRenBoard();
+  return board.rejectedClaimIds.includes('protective_kindness');
+}
+function renRejectedTruth(){
+  const board = ensureRenBoard();
+  return board.rejectedClaimIds.includes('fear_of_silence');
+}
+function canProveRen(){
+  const board = ensureRenBoard();
+  const core = board.claims.fear_of_silence;
+  const strongEvidence = core.supports.includes('toru_says_ends_too_fast') && core.supports.includes('nanao_points_out_timing') && core.supports.includes('shelf_joked_instead');
+  return renKilledShallow() && renKilledTrap() && renCoreAlive() && strongEvidence;
+}
+function renBoardStatusText(){
+  const board = ensureRenBoard();
+  if(renRejectedTruth()) return 'もっとも冷たい読みを自分で切ってしまっている。レンの笑いの奥は、まだ見えない。';
+  if(canProveRen()) return '善意という罠を切り、残すべき読みを残した。レンの冗談は、もう優しさだけでは説明できない。';
+  if(renCoreAlive() && !renKilledTrap()) return '核心は見えかけている。ただし、まだ善意という耳ざわりの良い読みが残っている。';
+  if(renCoreAlive()) return '核心は残っている。だが、まだ最後の立証に必要な証拠が少し足りない。';
+  return '複数の読みが競合したままで、レンの笑いの意味はまだ固まりきっていない。';
+}
+
+
+
+const TORU_BOARD_TEMPLATE = {
+  id:'ch05_toru',
+  subject:'トオルの未送信',
+  phase:'open',
+  activeClaimIds:['cowardice_only','resigned_distance','preservation_fixation'],
+  rejectedClaimIds:[],
+  confirmedClaimId:null,
+  appliedKeys:[],
+  claims:{
+    cowardice_only:{id:'cowardice_only',label:'出す勇気がなかっただけ',short:'臆病さで止まった',confidence:44,noise:12,state:'active',supports:[],conflicts:[],notes:[]},
+    resigned_distance:{id:'resigned_distance',label:'届かないと諦めていた',short:'最初から届かないと決めていた',confidence:31,noise:18,state:'active',supports:[],conflicts:[],notes:[]},
+    preservation_fixation:{id:'preservation_fixation',label:'保存することに逃げた',short:'届ける代わりに、美しく残そうとした',confidence:17,noise:28,state:'active',supports:[],conflicts:[],notes:[]}
+  }
+};
+
+function ensureToruBoard(){
+  if(!app.state.hypothesisBoards.ch05_toru){
+    app.state.hypothesisBoards.ch05_toru = clone(TORU_BOARD_TEMPLATE);
+  }
+  return app.state.hypothesisBoards.ch05_toru;
+}
+function toruBoard(){ return ensureToruBoard(); }
+function applyToruEffect(target,type,confidenceDelta,noiseDelta,evidenceId,note){
+  const board = ensureToruBoard();
+  const claim = board.claims[target];
+  if(!claim || claim.state==='rejected' || claim.state==='confirmed') return;
+  claim.confidence = Math.max(0, Math.min(100, claim.confidence + confidenceDelta));
+  claim.noise = Math.max(0, Math.min(100, claim.noise + noiseDelta));
+  if(type==='support' && evidenceId && !claim.supports.includes(evidenceId)) claim.supports.push(evidenceId);
+  if(type==='conflict' && evidenceId && !claim.conflicts.includes(evidenceId)) claim.conflicts.push(evidenceId);
+  if(note && !claim.notes.includes(note)) claim.notes.push(note);
+  if(claim.confidence <= 10) claim.state='weakened';
+}
+function applyToruBoardEvidenceOnce(key){
+  const board = ensureToruBoard();
+  if(board.appliedKeys.includes(key)) return;
+  board.appliedKeys.push(key);
+  if(key==='ch05_toru'){
+    applyToruEffect('cowardice_only','support',14,-4,'unsent_seen','未送信を閉じた動きだけ見ると、まずは勇気が足りないように見える。');
+    applyToruEffect('preservation_fixation','support',8,-2,'unsent_seen','送るより先に、残った文面の形を守っているようにも見える。');
+  }
+  if(key==='ch06_toru'){
+    applyToruEffect('cowardice_only','conflict',-16,8,'asked_toru_last_year','去年から同じ場所へ来ているなら、その場の臆病だけでは説明が足りない。');
+    applyToruEffect('resigned_distance','support',14,-3,'asked_toru_last_year','届かないものとして扱ってきた長さが見える。');
+    applyToruEffect('preservation_fixation','support',12,-4,'asked_toru_last_year','届かないからこそ、残す方へ固着した読みが強くなる。');
+  }
+  if(key==='ch07_voice'){
+    applyToruEffect('resigned_distance','support',10,-2,'stopped_voice','笑いで流れた言葉を見て、どうせ届かないと見切っている気配も濃くなる。');
+    applyToruEffect('preservation_fixation','support',10,-3,'stopped_voice','届かなかったものを、出来事として保存している側の目にも見える。');
+  }
+  if(key==='ch09_shelf'){
+    applyToruEffect('resigned_distance','conflict',-16,8,'shelf_saved_instead','ただ諦めたのなら、ここまで形を整えて残さない。');
+    applyToruEffect('preservation_fixation','support',24,-8,'shelf_saved_instead','言えなかった棚の並び方が、届かなさを記録として保存してきた執着を示している。');
+  }
+  app.state.proofLog.push({type:'toru_evidence', key});
+}
+function toruClaimsView(){
+  const board = ensureToruBoard();
+  return Object.values(board.claims).map(claim=>({
+    id:claim.id,
+    label:claim.label,
+    short:claim.short,
+    confidence:claim.confidence,
+    noise:claim.noise,
+    state:claim.state,
+    styleClass: claim.state==='rejected' ? 'claim-rejected' : (claim.noise>=35 ? 'claim-noisy' : (claim.confidence>=55 ? 'claim-strong' : 'claim-normal'))
+  }));
+}
+function rejectToruClaim(claimId){
+  const board = ensureToruBoard();
+  const claim = board.claims[claimId];
+  if(!claim || claim.state==='rejected') return;
+  claim.state='rejected';
+  board.rejectedClaimIds.push(claimId);
+  board.activeClaimIds = board.activeClaimIds.filter(id=>id!==claimId);
+  app.state.rejectedClaims.push({boardId:board.id, claimId, at:Date.now()});
+  app.state.proofLog.push({type:'reject', board:'ch05_toru', claimId});
+  board.phase='refuted';
+}
+function toruCoreAlive(){
+  const board = ensureToruBoard();
+  return board.activeClaimIds.includes('preservation_fixation');
+}
+function toruKilledShallow(){
+  const board = ensureToruBoard();
+  return board.rejectedClaimIds.includes('cowardice_only');
+}
+function toruKilledTrap(){
+  const board = ensureToruBoard();
+  return board.rejectedClaimIds.includes('resigned_distance');
+}
+function toruRejectedTruth(){
+  const board = ensureToruBoard();
+  return board.rejectedClaimIds.includes('preservation_fixation');
+}
+function canProveToru(){
+  const board = ensureToruBoard();
+  const core = board.claims.preservation_fixation;
+  const strongEvidence = core.supports.includes('unsent_seen') && core.supports.includes('asked_toru_last_year') && core.supports.includes('shelf_saved_instead');
+  return toruKilledShallow() && toruKilledTrap() && toruCoreAlive() && strongEvidence;
+}
+function toruBoardStatusText(){
+  const board = ensureToruBoard();
+  if(toruRejectedTruth()) return 'もっとも深い読みを自分で切ってしまっている。トオルの未送信は、ただの保留にしか見えなくなる。';
+  if(canProveToru()) return '臆病と諦観の罠を切り、残そうとした執着だけが残った。未送信は、もう単なる失敗では説明できない。';
+  if(toruCoreAlive() && !toruKilledTrap()) return '核心は見えかけている。ただし、まだ諦観という静かな罠が残っている。';
+  if(toruCoreAlive()) return '核心は残っている。だが、保存と執着を立証するには証拠があと一つ足りない。';
+  return '複数の読みが競合したままで、トオルの未送信の意味はまだ固まりきっていない。';
+}
+
+function seenIn(sceneId, spotId){
+  const seen = app.state.sceneData[sceneId]?.seen || [];
+  return seen.includes(spotId);
+}
+function chooseHypothesis(chId, choiceId){
+  app.state.hypotheses[chId] = choiceId;
+}
+function chooseHypothesisEvidence(chId, evidenceId){
+  app.state.hypothesisEvidence[chId] = evidenceId;
+  const choiceId = app.state.hypotheses[chId];
+  const support = (((HYPOTHESIS_SUPPORT[chId]||{})[choiceId])||[]);
+  const strong = support.includes(evidenceId) && HYPOTHESIS_DB[chId]?.correct === choiceId;
+  const weak = HYPOTHESIS_DB[chId]?.correct === choiceId && !strong;
+  app.state.hypothesisStrength[chId] = strong ? 'strong' : weak ? 'weak' : 'wrong';
+  app.state.clues.history.push({type:'hypothesis_evidence', chapter:chId, choice:choiceId, evidence:evidenceId, strength:app.state.hypothesisStrength[chId]});
+}
+function evidenceOptionsForChapter(chId){
+  return (HYPOTHESIS_EVIDENCE_DB[chId]||[]).filter(ev=>ev.available(app));
+}
+function evidenceLabel(chId, evidenceId){
+  const it = (HYPOTHESIS_EVIDENCE_DB[chId]||[]).find(v=>v.id===evidenceId);
+  return it ? it.text : evidenceId;
+}
+function hypothesisLabel(chId, choiceId){
+  const set = HYPOTHESIS_DB[chId];
+  if(!set) return choiceId;
+  const op = set.options.find(v=>v.id===choiceId);
+  return op ? op.text : choiceId;
+}
+function hypothesisIsCorrect(chId){
+  return app.state.hypothesisStrength[chId] === 'strong';
+}
+function hypothesisStrengthLabel(chId){
+  const s = app.state.hypothesisStrength[chId];
+  if(s==='strong') return '確からしい';
+  if(s==='weak') return '方向は合うが根拠が弱い';
+  return 'まだ揺れている';
+}
+function correctHypothesisCount(){
+  return Object.keys(HYPOTHESIS_DB).filter(k=>hypothesisIsCorrect(k)).length;
+}
+function applyRebuttals(){
+  const r = app.state.rebuttals || (app.state.rebuttals = {});
+  // ch05: 一人の恋愛だと思っていたが、複数の未返却が重なっていた
+  if(app.state.hypotheses.ch05 === 'romance' && !r.ch05 && (app.state.hypotheses.ch07 === 'visible' || hasTruth('voice_is_leaking_regret') || (seenIn('ch07_explore','chalk') && app.state.ch07Choice==='voice'))){
+    r.ch05 = {from:'romance', to:'many', text:'第五章の包みは、一人の恋愛感情の中心ではなかった。第七章の笑ってごまかされた場面と照らすと、あの夕方に止まっていたのは一つではなく、複数の未返却だったとわかる。'};
+    app.state.clues.history.push({type:'rebuttal', chapter:'ch05', from:'romance', to:'many'});
+  }
+  // ch06: 偶然だと思っていたが、去年からの持ち越しだった
+  if(app.state.hypotheses.ch06 === 'coincidence' && !r.ch06 && (hasTruth('regret_from_last_year') || app.state.flags.CLUE_OLD_EMA)){
+    r.ch06 = {from:'coincidence', to:'carry', text:'第六章の絵馬の一致は偶然ではなかった。去年の掲示と裏紙の文面がつながった時、去年から今年へ持ち越された未返却としてしか読めなくなる。'};
+    app.state.clues.history.push({type:'rebuttal', chapter:'ch06', from:'coincidence', to:'carry'});
+  }
+  // ch07: 一人の問題だと思っていたが、学校全体へ可視化された日だった
+  if(app.state.hypotheses.ch07 === 'private' && !r.ch07 && (hasTruth('voice_is_leaking_regret') || app.state.hypotheses.ch04 === 'leak')){
+    r.ch07 = {from:'private', to:'visible', text:'第七章の気まずさは一人の問題ではなかった。放送に混ざる声の構造がわかった後では、あの日は未返却がもっとも表へ出た日として読み直される。'};
+    app.state.clues.history.push({type:'rebuttal', chapter:'ch07', from:'private', to:'visible'});
+  }
+}
+function rebuttalText(chId){
+  const r = app.state.rebuttals && app.state.rebuttals[chId];
+  return r ? r.text : '';
+}
+function setAirMode(target, mode){
+  const table = {
+    minori:{smalltalk:-1, core:+1, silence:0},
+    ren:{smalltalk:-1, core:+1, silence:0},
+    toru:{smalltalk:-1, core:+1, silence:0}
+  };
+  const d = table[target] && table[target][mode] !== undefined ? table[target][mode] : 0;
+  shiftHeat(d);
+  app.state.lastAirMove = {target, mode, heat: app.state.airHeat};
+}
+function airMoveText(target){
+  const a = app.state.lastAirMove || {};
+  const mode = a.mode;
+  if(target==='minori'){
+    if(mode==='smalltalk') return '六角レンチは先に季節の話を少しだけ挟んだ。ミノリの肩の力は抜けるが、包みはまだ机の端に残る。話題が軽くなるほど、逆に包みだけが机の上で頑固に黙る。';
+    if(mode==='core') return '六角レンチは包みから目を逸らさなかった。ミノリの手元の空気が、少しだけ先に張る。視線を外さないだけで、教室の雑音が少し遠くなる。';
+    return '六角レンチは何も足さず、ミノリが自分で言葉を出すのを待った。沈黙が一番重い形で机の上へ落ちる。包みの角をなぞる指先だけが、時間の進み方に逆らっていた。';
+  }
+  if(target==='ren'){
+    if(mode==='smalltalk') return '六角レンチは一度だけ雑談へ逃がし、レンの肩を下ろさせた。だが、笑いに流れる危うさも少し増える。楽になるのと、逃げやすくなるのは、教室ではだいたい同じ顔をしている。';
+    if(mode==='core') return '六角レンチは最初から謝るべきことの輪郭へ触れた。レンの冗談はまだ出ていないが、逃げ道も狭くなる。笑う前の口元だけが、少しだけこわばった。';
+    return '六角レンチは言葉を置かず、レンの方から口を開く間を作った。沈黙は短いが、逃げるには十分でもある。レンみたいなやつは、二秒あれば笑いの仮面をかぶり直せる。';
+  }
+  if(target==='toru'){
+    if(mode==='smalltalk') return '六角レンチは先に別の話題を置いた。トオルは落ち着くが、言葉はまた完成待ちへ戻りやすくなる。安心すると保留へ戻れるのが、トオルのずるさでもある。';
+    if(mode==='core') return '六角レンチは未送信の文面にすぐ触れた。トオルは目を伏せるが、保留の壁も薄くはなる。画面に残った白さが、言い訳より先に本音を照らしている。';
+    return '六角レンチは急がず、トオルが自分で文面の続きを見つけるまで待つ。静けさは助けにも盾にもなる。トオルはその両方を知っているから、黙る時ほど手強い。';
+  }
+  return '';
+}
+const app = {state: defaultState(), cache:null};
+
+const CLUE_META = {
+  CLUE_KEY_SWAP:'差し替えられた鍵',
+  CLUE_NOTE_SYMBOL:'記号だけの返却記録',
+  CLUE_MEMO_HAND:'手書きの一文',
+  CLUE_NANAO_DOOR:'鍵の変わった扉',
+  CLUE_OLD_EMA:'去年から続く痕跡',
+  CLUE_KEYBOX_PAPER:'鍵箱の裏紙'
+};
+const CLUE_SELECT_ORDER = ['CLUE_KEY_SWAP','CLUE_NOTE_SYMBOL','CLUE_MEMO_HAND','CLUE_NANAO_DOOR','CLUE_OLD_EMA','CLUE_KEYBOX_PAPER'];
+const TRUTH_RECIPES = [
+  {id:'regret_from_last_year', label:'去年から続く未返却', needs:['CLUE_NOTE_SYMBOL','CLUE_OLD_EMA']},
+  {id:'room_belongs_to_unreturned', label:'準備室は未返却の保管庫', needs:['CLUE_KEY_SWAP','CLUE_NOTE_SYMBOL']},
+  {id:'voice_is_leaking_regret', label:'放送は言えなかった感情を拾っている', needs:['CLUE_MEMO_HAND','CLUE_OLD_EMA']},
+  {id:'door_leads_to_saved_regret', label:'17番の先は返せなかったものの置き場', needs:['CLUE_KEY_SWAP','CLUE_KEYBOX_PAPER']},
+  {id:'time_distortion_follows_room', label:'日付のズレは準備室の気配だ', needs:['CLUE_NANAO_DOOR','CLUE_KEYBOX_PAPER']}
+];
+
+const LINK_REASON_DB = {
+  room_belongs_to_unreturned: {
+    prompt: 'なぜ、準備室は未返却の保管庫だと言えるのか。',
+    options: [
+      {id:'a', text:'名前を消して物だけを残すのは、誰かに見せたくないからだ'},
+      {id:'b', text:'記号と鍵番号が対応していると考えれば、管理された場所があると読める'},
+      {id:'c', text:'返却済みなのに物がないのは、ただの紛失では説明しきれない'}
+    ],
+    correct: 'b'
+  },
+  regret_from_last_year: {
+    prompt: 'なぜ、去年から続く未返却だとわかるのか。',
+    options: [
+      {id:'a', text:'去年の絵馬の文字が、今年の書きかけと同じだからだ'},
+      {id:'b', text:'神社に行った人が同じだからだ'},
+      {id:'c', text:'今年の方が気まずい空気だからだ'}
+    ],
+    correct: 'a'
+  },
+  voice_is_leaking_regret: {
+    prompt: 'なぜ、放送は言えなかった感情を拾っていると言えるのか。',
+    options: [
+      {id:'a', text:'放送室は静かだから、雑音がよく聞こえるだけだ'},
+      {id:'b', text:'原稿にない一文と、手書きの断片が同じ向きを向いているからだ'},
+      {id:'c', text:'ミノリの声が特別だからだ'}
+    ],
+    correct: 'b'
+  },
+  door_leads_to_saved_regret: {
+    prompt: 'なぜ、17番の先が返せなかったものの置き場だと言えるのか。',
+    options: [
+      {id:'a', text:'鍵の差し替えと裏紙の文面が、隠すためではなく残すための操作を示しているからだ'},
+      {id:'b', text:'雨の日だけ通れるからだ'},
+      {id:'c', text:'鍵箱が古いからだ'}
+    ],
+    correct: 'a'
+  },
+  time_distortion_follows_room: {
+    prompt: 'なぜ、日付のズレが準備室の気配だと言えるのか。',
+    options: [
+      {id:'a', text:'掲示板と扉の異常が、同じ場所へ引かれているからだ'},
+      {id:'b', text:'学校の時計が壊れているからだ'},
+      {id:'c', text:'去年の行事が多い時期だからだ'}
+    ],
+    correct: 'a'
+  }
+};
+
+const HEAT_LABELS = ['静','低','適','高','限'];
+const HEAT_SIGNS = {
+  minori: ['ミノリはもう聞こえていないふりをしている。','ミノリは包みの角だけを揃え続けている。','ミノリは手を止めた。','ミノリは包みを机の下へ押し込みかけた。','ミノリの声が先に硬くなる。'],
+  ren: ['レンは軽口すら出さず、笑う準備だけしている。','レンは冗談を探しているが、まだ口にしていない。','レンは半分だけ笑って、こちらの出方を見ている。','レンはもう冗談に逃げる気配を隠していない。','レンは笑いながら、目だけ閉じかけている。'],
+  toru: ['トオルは黙ったまま、画面を伏せてしまった。','トオルは文面を閉じて、考え直す方へ戻りかけている。','トオルは言葉を出すかどうかの境目で止まっている。','トオルは完成していないことを盾にし始めている。','トオルは、今触れられると全部消しそうな顔をしている。']
+};
+const CHAPTER_LOGS = {
+  ch01:{base:'17番の鍵が見当たらない。', upgraded:{room_belongs_to_unreturned:'17番は紛失ではなく、未返却を隠すために差し替えられていた可能性が高い。', door_leads_to_saved_regret:'17番の不在は、返せなかったものを置く部屋の存在とつながっていた。'}},
+  ch02:{base:'返却済みの英単語帳が一覧へ戻っている。', upgraded:{room_belongs_to_unreturned:'返却記録の記号は、戻れなかった物を別の場所で管理していた痕跡かもしれない。'}},
+  ch03:{base:'雨の日の扉の下だけ、水がたまっている。', upgraded:{door_leads_to_saved_regret:'足跡の消える先にある扉は、準備室へ通じる入口だった可能性が高い。'}},
+  ch04:{base:'放送に原稿にない一文が混ざる。', upgraded:{voice_is_leaking_regret:'放送は、その日に言えなかった感情を代わりに拾っていた。'}},
+  ch05:{base:'渡せなかった包みと送られなかった言葉が残る。', upgraded:{voice_is_leaking_regret:'包みもメッセージも、形の違う未返却として同じ線に並んでいる。'}},
+  ch06:{base:'去年の絵馬と今年の書きかけが似ている。', upgraded:{regret_from_last_year:'去年の未返却は、今年の六角レンチたちの問題と地続きだった。'}},
+  ch07:{base:'宛名のない包みと、笑ってごまかされた感情が残る。', upgraded:{voice_is_leaking_regret:'笑って飲み込まれた言葉は、放送へ混ざる一文と同じ種類の未返却だった。'}},
+  ch08:{base:'鍵箱の裏紙が、準備室の存在を示唆する。', upgraded:{door_leads_to_saved_regret:'裏紙は、名前のない先輩が準備室を祈りの形で残した証拠だった。'}},
+  ch09:{base:'準備室には、未返却の物と感情が置かれている。', upgraded:{room_belongs_to_unreturned:'準備室は怪異ではなく、未返却を一時的に保管するための場所として読める。', regret_from_last_year:'この部屋の最初の主は、去年の文化祭で返せなかった先輩だった。'}}
+};
+function buzz(ms=18){ try{ if(window.navigator && navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+function truthLabel(id){ const t = TRUTH_RECIPES.find(r=>r.id===id); return t ? t.label : id; }
+function clueLabel(id){ return CLUE_META[id] || id; }
+function formatLinkHistoryItem(item){
+  if(!item) return '';
+  if(item.type==='link_reason'){
+    return `${truthLabel(item.truth)} / 理由 ${item.ok ? '確定' : '弱い仮説'}`;
+  }
+  if(item.type==='link_fail'){
+    return '断片を並べたが、まだつながらない。';
+  }
+  return '';
+}
+function resolveLogText(logId){
+  const item = CHAPTER_LOGS[logId];
+  if(!item) return '';
+  for(const truthId of app.state.clues.linked){
+    if(item.upgraded && item.upgraded[truthId]) return item.upgraded[truthId];
+  }
+  const chKey = logId;
+  if(app.state.hypotheses[chKey]){
+    const pick = hypothesisLabel(chKey, app.state.hypotheses[chKey]);
+    return item.base + ' / 仮説: ' + pick;
+  }
+  return item.base;
+}
+function syncFocusMode(sceneId){
+  const roomFocus = /^ch09_/.test(sceneId||'');
+  const returnFocus = /^ch10_/.test(sceneId||'');
+  const finalFocus = /^ending_|^final_log$/.test(sceneId||'');
+  const finalQuestionFocus = /^final_question$|^title_return$/.test(sceneId||'');
+  document.body.classList.toggle('focus-room', roomFocus);
+  document.body.classList.toggle('focus-return', returnFocus);
+  document.body.classList.toggle('focus-final', finalFocus);
+  document.body.classList.toggle('focus-final-question', finalQuestionFocus);
+}
+
+function clone(v){ return JSON.parse(JSON.stringify(v)); }
+function registerClue(id){
+  if(!id) return;
+  if(!app.state.clues.found.includes(id)) app.state.clues.found.push(id);
+}
+function hasTruth(id){ return app.state.clues.linked.includes(id); }
+function hasWeakTruth(id){ return (app.state.clues.weak || []).includes(id); }
+function shiftHeat(delta){
+  const before = app.state.airHeat ?? 2;
+  app.state.airHeat = Math.max(0, Math.min(4, before + delta));
+  if(app.state.airHeat === 4 && before !== 4) buzz(24);
+}
+function findTruthByPair(first, second){
+  const pair = [first, second].filter(Boolean).sort();
+  return TRUTH_RECIPES.find(r => r.needs.slice().sort().join('|') === pair.join('|')) || null;
+}
+function finalizeLinkReason(reasonId){
+  const truthId = app.state.linkDraftTruth;
+  const reasonSet = LINK_REASON_DB[truthId];
+  if(!truthId || !reasonSet){
+    app.state.lastLinkedTruth = null;
+    app.state.lastLinkResolution = 'fail';
+    return null;
+  }
+  const ok = reasonSet.correct === reasonId;
+  app.state.clues.history.push({type:'link_reason', truth:truthId, reason:reasonId, ok});
+  app.state.lastLinkedTruth = truthId;
+  app.state.lastLinkResolution = ok ? 'success' : 'weak';
+  if(ok){
+    if(!app.state.clues.linked.includes(truthId)) app.state.clues.linked.push(truthId);
+    app.state.clues.weak = (app.state.clues.weak || []).filter(id => id !== truthId);
+    buzz(20);
+  } else {
+    if(!app.state.clues.weak.includes(truthId) && !app.state.clues.linked.includes(truthId)) app.state.clues.weak.push(truthId);
+  }
+  return {truthId, ok};
+}
+function heatCue(target){
+  const arr = HEAT_SIGNS[target] || [];
+  return arr[app.state.airHeat] || '';
+}
+
+function addChainNote(msg){
+  if(!app.state.chainState) app.state.chainState=[];
+  app.state.chainState.push(msg);
+}
+function applyChainAfterSuccess(target){
+  if(!app.state.chainState) app.state.chainState=[];
+  if(app.state.chainState.includes('applied:'+target)) return;
+  app.state.chainState.push('applied:'+target);
+  if(target==='minori'){
+    applyRenEffect('protective_kindness','conflict',-10,8,'chain_minori_opened','ミノリが包みを開いたことで、レンの「優しさ」だけでは片づかない感じが強まる。');
+    applyRenEffect('fear_of_silence','support',10,-4,'chain_minori_opened','誰かが言い切った後では、冗談の逃がし方がむしろ浮く。');
+    applyToruEffect('resigned_distance','conflict',-8,6,'chain_minori_opened','誰かが現実で返した後では、諦めていただけという読みが揺らぐ。');
+    applyToruEffect('preservation_fixation','support',8,-3,'chain_minori_opened','残すだけでは足りないという圧が、トオルの側へも届く。');
+    addChainNote('ミノリが包みを開いたことで、レンの冗談とトオルの保存にも言い訳が残りにくくなった。');
+  }
+  if(target==='ren'){
+    applyMinoriEffect('avoidance_of_definition','support',8,-3,'chain_ren_stopped','レンが冗談で終わらせなかったことで、ミノリも整えた先延ばしへ戻りにくくなる。');
+    applyToruEffect('preservation_fixation','support',10,-4,'chain_ren_stopped','会話が終わらずに残ったことで、トオルの保存はただの美しさでは済まなくなる。');
+    addChainNote('レンが笑いで終わらせなかったことで、残り二人にも「まだ言える」という圧が波及した。');
+  }
+  if(target==='toru'){
+    applyRenEffect('fear_of_silence','support',12,-4,'chain_toru_sent','トオルが未完成のまま届けたことで、レンの「終わらせる冗談」が急に防衛として見えやすくなる。');
+    applyMinoriEffect('avoidance_of_definition','support',10,-3,'chain_toru_sent','保存より伝達を選んだ気配が、ミノリの保留にも静かに刺さる。');
+    addChainNote('トオルが保存より伝達を選んだことで、レンとミノリの保留も静かに揺れ始めた。');
+  }
+}
+function shelfAfterimageText(){
+  const hist = app.state.returnHistory || [];
+  if(hist.length >= 3) return '空いた棚の板だけ、周りよりわずかに埃が薄い。何かが長く置かれていた重みの跡だけが、日焼けのように残っている。';
+  if(hist.length >= 2) return '札が消えた場所だけ、棚の木目が妙に明るい。そこにあった重さが抜けたのに、跡だけがまだ残っている。';
+  if(hist.length >= 1) return 'ひとつ空いた場所だけ、札の影が薄く残る。返したあとにも、かつてそこに留まっていた気配はすぐには消えない。';
+  return '';
+}
+function chainSuccessText(){
+  const hist = app.state.returnHistory || [];
+  if(hist.includes('minori') && hist.includes('ren') && hist.includes('toru')) return `三人の返却がつながった。包み、冗談、未送信は別々の問題ではなく、同じ保留の違う形だったとわかる。
+
+${shelfAfterimageText()}`;
+  if(hist.includes('minori') && hist.includes('ren')) return `包みが動いたことで、冗談の逃げ道も細くなった。返却は一人で閉じず、別の一人の言い訳まで削っていく。
+
+${shelfAfterimageText()}`;
+  if(hist.includes('minori') && hist.includes('toru')) return `包みが現実へ戻ったことで、保存だけでは足りないことがトオルにも伝わった。返却は形を変えて連鎖している。
+
+${shelfAfterimageText()}`;
+  if(hist.includes('ren') && hist.includes('toru')) return `冗談が止まり、保存が動いたことで、終わらせることと残すことの両方が少しずつほどけた。
+
+${shelfAfterimageText()}`;
+  if(hist.includes('minori')) return `ミノリの包みがほどけたことで、保留は一つだけでも現実へ触れ始める。
+
+${shelfAfterimageText()}`;
+  if(hist.includes('ren')) return `レンの冗談が止まりかけたことで、この部屋の沈黙も少しだけ別の形を取り始める。
+
+${shelfAfterimageText()}`;
+  if(hist.includes('toru')) return `トオルの保存がほどけたことで、言葉は残すだけのものではなくなった。
+
+${shelfAfterimageText()}`;
+  return `誰もまだ返していない。準備室は、保留の形をした沈黙をそのまま抱えている。
+
+${shelfAfterimageText()}`;
+}
+function coreFragmentText(target){
+  if(target==='minori') return '包みの中から出てきたのは、贈り物というより、役割を決めてしまうための紙だった。二人分の署名欄と、受け取ったことを示す小さな印。好きだと言うより重く、まだ友人でいられるという逃げ道だけをきれいに塞ぐ。渡せなかったのではない。渡した瞬間に今の関係へ名前がつくことが、怖かったのだ。';
+  if(target==='ren') return '笑いが引いたあとに残ったのは、謝罪でも告白でもなかった。これ以上、こっちに入ってこないでくれ、という、喉元で止めた最初の一音だった。場を守るためではない。沈黙に意味がつく前に、対話そのものを冗談で切り落としていた。その癖だけが、妙にきれいに残っている。';
+  if(target==='toru') return '端末の画面には、本文がなかった。句読点すら打たれていない空白の下書き。更新日時だけが去年の冬から執拗に書き換わり、送信ボタンの上だけが何度も触れられた痕で白く曇っている。言葉を送れなかったのではない。送らないまま保存されている、欠けのない状態そのものを、壊したくなかったのだ。';
+  return '';
+}
+function targetLabel(id){ return ({minori:'ミノリ', ren:'レン', toru:'トオル'})[id] || id; }
+function remainingReturnTargets(){ return ['minori','ren','toru'].filter(t => canReturnTarget(t) && !(app.state.returnHistory||[]).includes(t)); }
+function proofLeadText(target){
+  const hist = (app.state.returnHistory || []).filter(h => h !== target);
+  if(hist.length >= 2){
+    return 'もう二人、返していった奴らがいる。あいつらが捨てたのは、自分を縛っていた保留だ。ここで残る一人だけが、まだ準備室の一部であり続けようとしている。';
+  }
+  if(hist.length === 1){
+    const first = hist[0];
+    if(first==='minori' && target==='ren') return 'ミノリは、関係に名前がつくのを恐れて包みを止めていた。レン、お前も同じだ。沈黙に意味がつくのを恐れて、冗談でその場を殺し続けてきた。';
+    if(first==='ren' && target==='toru') return 'レンは、冗談で対話を終わらせることで自分を守っていた。トオル、お前はその逆だ。保存することで、終わらせないふりをして自分を守っている。';
+    if(first==='toru' && target==='minori') return 'トオルは、届かないと知りながら言葉を保存することに逃げた。ミノリ、君も同じだ。その包みを持ち続けることで、去年の放課後を凍結させているだけだ。';
+    if(first==='minori' && target==='toru') return 'ミノリが包みを現実へ戻したあとでは、残すだけで足りるとはもう言えない。トオル、お前の保存も、伝達を止めるための避難所に見えてしまう。';
+    if(first==='ren' && target==='minori') return 'レンが冗談で終わらせなかったあとでは、保留そのものも言い訳にはならない。ミノリ、その包みもまた、きれいな先延ばしとして見えてしまう。';
+    if(first==='toru' && target==='ren') return 'トオルが保存をやめたあとでは、レンの冗談もただ軽く流しただけとは読めない。終わらせて守っていた形が、前よりはっきり見える。';
+  }
+  if(target==='minori') return 'ミノリの包みは、恋愛の未遂に見えて、もっと別の保留を抱えている。ここでは、その読みを甘いままでは置いておけない。包みの重さより、包みを持っている時の肩の上がり方の方が、本音に近い。';
+  if(target==='ren') return 'レンの冗談は、軽さにも優しさにも見える。だが、そのどちらに逃がすかで、最後の立証は大きく変わる。笑い声のあとに残る目線の逃げ方まで読めるかどうかで、意味が変わる。';
+  if(target==='toru') return 'トオルの未送信は、臆病にも諦観にも見える。だが残されたままの言葉は、もっと執着に近い形をしているかもしれない。画面を伏せる指の動きまで含めると、保留というより保存に近い。';
+  return '';
+}
+function followupOrdinalLabel(){
+  const n = (app.state.returnHistory || []).length + 1;
+  if(n===2) return '二人目';
+  if(n===3) return '三人目';
+  return '次';
+}
+function targetTruthStrength(target){
+  if(target==='minori'){
+    if(canProveMinori()) return 'strong';
+    if(minoriCoreAlive() && !minoriRejectedTruth()) return 'weak';
+    if(!!app.state.flags.CLUE_KEYBOX_PAPER) return 'clue';
+    return 'none';
+  }
+  if(target==='ren'){
+    if(canProveRen()) return 'strong';
+    if(renCoreAlive() && !renRejectedTruth()) return 'weak';
+    if(!!app.state.flags.CLUE_MEMO_HAND) return 'clue';
+    return 'none';
+  }
+  if(target==='toru'){
+    if(canProveToru()) return 'strong';
+    if(toruCoreAlive() && !toruRejectedTruth()) return 'weak';
+    if(!!app.state.flags.CLUE_OLD_EMA) return 'clue';
+    return 'none';
+  }
+  return 'none';
+}
+function canReturnTarget(target){
+  return targetTruthStrength(target) !== 'none';
+}
+function resolveReturn(target, action){
+  const deltas = {
+    minori:{soft_stop:-1, hard_stop:1, agree_delay:0},
+    ren:{join_joke:-1, refuse_joke:0, cut_hard:2},
+    toru:{wait_complete:-1, allow_imperfect:0, push_now:2}
+  };
+  shiftHeat((deltas[target] && deltas[target][action] !== undefined) ? deltas[target][action] : 0);
+  const strength = targetTruthStrength(target);
+  let ok = false;
+  let reason = 'choice';
+  if(strength === 'none') reason = 'truth';
+  else if(target==='minori'){
+    if(!canProveMinori()) reason = minoriRejectedTruth() ? 'wrong_rejection' : 'proof';
+    else if(action==='soft_stop' && app.state.airHeat >= 1 && app.state.airHeat <= 2) ok = true;
+    else if(action==='hard_stop' || app.state.airHeat >= 3) reason = 'heat_high';
+    else if(app.state.airHeat <= 0) reason = 'heat_low';
+  } else if(target==='ren'){
+    if(renRejectedTruth()) reason = 'wrong_rejection';
+    else if(!renKilledTrap()) reason = 'trapped';
+    else if(!canProveRen()) reason = 'proof';
+    else if(action==='refuse_joke' && app.state.airHeat >= 1 && app.state.airHeat <= 3) ok = true;
+    else if(action==='cut_hard' || app.state.airHeat >= 4) reason = 'heat_high';
+    else if(app.state.airHeat <= 0) reason = 'heat_low';
+  } else if(target==='toru'){
+    if(toruRejectedTruth()) reason = 'wrong_rejection';
+    else if(!toruKilledTrap()) reason = 'trapped_toru';
+    else if(!canProveToru()) reason = 'proof';
+    else if(action==='allow_imperfect' && app.state.airHeat >= 1 && app.state.airHeat <= 2) ok = true;
+    else if(action==='push_now' || app.state.airHeat >= 3) reason = 'heat_high';
+    else if(app.state.airHeat <= 0) reason = 'heat_low';
+  }
+  if(ok && strength !== 'strong'){
+    const exact = app.state.airHeat === 2;
+    if(!exact){ ok = false; reason = 'weak_truth'; }
+  }
+  if(target==='minori' && ok){
+    app.state.proofLog.push({type:'prove', target:'minori', rejected:clone(minoriBoard().rejectedClaimIds), supports:clone(minoriBoard().claims.avoidance_of_definition.supports)});
+  }
+  if(target==='toru' && ok){
+    app.state.proofLog.push({type:'prove', target:'toru', rejected:clone(toruBoard().rejectedClaimIds), supports:clone(toruBoard().claims.preservation_fixation.supports)});
+  }
+  if(target==='ren' && ok){
+    app.state.proofLog.push({type:'prove', target:'ren', rejected:clone(renBoard().rejectedClaimIds), supports:clone(renBoard().claims.fear_of_silence.supports)});
+  }
+  app.state.lastReturnAttempt = {target, action, heat:app.state.airHeat, ok, reason, strength};
+  if(ok && !app.state.returnHistory.includes(target)){
+    app.state.returnHistory.push(target);
+    app.state.flags.RETURN_TARGETS += 1;
+    app.state.flags.ACT_RETURN += 1;
+    applyChainAfterSuccess(target);
+    buzz(16);
+  }
+  return ok;
+}
+function returnAttemptText(kind='fail'){
+  const a = app.state.lastReturnAttempt || {};
+  const names = {minori:'ミノリ', ren:'レン', toru:'トオル'};
+  const name = names[a.target] || '相手';
+  if(kind==='success'){
+    if(a.target==='minori') return `${name}は、きれいな言い方へ逃がすのをやめた。整えた声ではなく、自分の言葉で渡すと決めた瞬間、包みは机の端ではなく手の中へ移る。リボンの端が少しだけ震え、それでも今度は机へ戻されない。
+
+（少しだけ暗くなった視界の中で、輪郭だけが浮く）
+${coreFragmentText('minori')}
+
+準備室では、同じ棚の札が少しだけずれて、空白の位置が変わる。
+
+${chainSuccessText()}`;
+    if(a.target==='ren') return `${name}は、冗談を最後まで冗談のままにしなかった。軽さでも優しさでもなく、沈黙を恐れて終わらせていたのだと認めた時、笑いの前に一拍の間が生まれる。いつもなら一番早く返ってくる軽口が、その日だけ少し遅れた。
+
+（言葉のあとに、いつもより長い沈黙が落ちる）
+${coreFragmentText('ren')}
+
+準備室では「冗談にした」の棚が下がり、「言えなかった」が前へ出る。
+
+${chainSuccessText()}`;
+    if(a.target==='toru') return `${name}は、保存していた言葉を初めて外へ出した。未完成のままでも届くと認めた時、未送信は保留ではなく伝達へ変わる。送信ボタンを押す指は静かなのに、そのあとだけ息が少し乱れた。
+
+（画面がわずかに暗くなり、曇った指跡だけが浮かぶ）
+${coreFragmentText('toru')}
+
+準備室では「言えなかった」の棚の影が薄くなり、保存のために揃っていた札の列が少し崩れる。
+
+${chainSuccessText()}`;
+  }
+  if(a.reason==='truth') return `${name}に向かう理由は、まだ自分の中で言葉になっていなかった。何を返せばいいのかの輪郭が足りないままでは、正しい一手も打てない。`;
+  if(a.reason==='trapped' && a.target==='ren') return `レンは、少し笑ってから視線をそらす。
+
+優しい奴、で終わらせてくれたら楽だったんだけどな。……あんたも、俺の表面しか見てないんだ。
+
+善意というきれいな読みを残したままでは、まだレンの冗談は解体できない。`;
+  if(a.reason==='wrong_rejection') return `${name}の核心に近い読みを、自分で先に切ってしまっていた。今ここで言えることはあっても、届く形にはまだならない。`;
+  if(a.reason==='proof') return `${name}の輪郭はかなり見えている。でも、まだ立証に必要な証拠が少し足りない。見えていることと、証明できることは違う。わかった気になるのと、相手へ届く言葉を持つのもまた別だ。`;
+  if(a.reason==='trapped_toru' && a.target==='toru') return `トオルは、画面を伏せたまま小さく息をつく。
+
+届かないってことにしておけば、保存してるだけで済むから。……あんたも、その言い訳をまだ残してる。
+
+諦観という静かな罠を切れていないままでは、トオルの未送信はまだ揺るがない。`;
+  if(a.reason==='heat_high') return `踏み込みすぎた。場の温度が上がりすぎて、${name}は反射的に心を閉ざす。正しいことでも、熱量を誤ると届かない。言葉が強すぎる時、高校生の教室ではそれだけで全部が恥になる。`;
+  if(a.reason==='heat_low') return `熱が足りなかった。安全な言い方のままでは、${name}は保留へ戻ってしまう。もう一歩だけ温度が必要だった。やさしいだけの言葉は、ときどき都合のいい逃げ道になってしまう。`;
+  if(a.reason==='weak_truth') return `${name}の輪郭は見えていた。でも理由の理解がまだ浅いまま踏み込んだせいで、届く言葉が最後のところで弱くなる。仮説のままでは、返却は成立しきらない。`;
+  return `${name}の逃げ方を見抜けなかった。手は伸ばしたのに、最後の一手が少しだけずれて、返却はまた先送りになる。`;
+}
+
+function addFlags(delta){ for(const k in delta){ app.state.flags[k] = (app.state.flags[k] || 0) + delta[k]; } }
+function updateChips(){
+  const f = app.state.flags;
+  els.flagLabel.textContent = `VOICE ${f.MYS_VOICE} / TIME ${f.MYS_TIME} / LOST ${f.MYS_LOST} / LINK ${app.state.clues.linked.length} / RETURN ${f.RETURN_TARGETS}`;
+  if(els.heatLabel) els.heatLabel.textContent = HEAT_LABELS[app.state.airHeat] || '適';
+  if(els.heatFill) els.heatFill.style.height = (20 + app.state.airHeat * 20) + '%';
+}
+function currentScene(){ return app.cache; }
+function enterScene(id){
+  if(!id){
+    showTitle();
+    return;
+  }
+  app.state.sceneId = id;
+  app.state.idx = 0;
+  const base = scenes[id] || {type:'talk',label:'未定義',background:'classroom',lines:[{speaker:'',text:`未定義シーン: ${id}`}],next:'ending_fail'};
+  const built = base.build ? Object.assign({}, base, base.build(app)) : clone(base);
+  app.cache = built;
+  app.state.noAdvanceUntil = 0;
+  app.state.finalQuestionRevealed = true;
+  syncFocusMode(id);
+  if(/^ch08_|^ch09_|^ch10_/.test(app.state.sceneId||'')) applyRebuttals();
+  if(app.cache.onEnter) app.cache.onEnter(app);
+  render();
+  if(id==='final_question'){
+    app.state.finalQuestionRevealed = false;
+    app.state.noAdvanceUntil = Number.POSITIVE_INFINITY;
+    render();
+    setTimeout(()=>{
+      if(app.state.sceneId!=='final_question') return;
+      app.state.finalQuestionRevealed = true;
+      app.state.noAdvanceUntil = Date.now() + 2200;
+      render();
+    }, 1600);
+  }
+}
+function nextScene(){
+  const sc = currentScene();
+  if(sc && sc.onExit) sc.onExit(app);
+  enterScene(sc ? sc.next : null);
+}
+function render(){
+  const sc = currentScene();
+  els.sceneLabel.textContent = sc.label || '';
+  els.bg.style.background = BG[sc.background] || BG.classroom;
+  els.speaker.textContent=''; els.text.textContent=''; els.sub.textContent=''; els.choices.innerHTML=''; els.spotLayer.innerHTML='';
+  els.spotHelp.classList.add('hidden');
+  const talkish = (sc.type === 'talk' || (sc.type === 'explore' && app.state.exploreReadyNext));
+  const hideForFinalQuestion = (app.state.sceneId==='final_question' && !app.state.finalQuestionRevealed);
+  els.advance.classList.toggle('hidden', !(talkish) || hideForFinalQuestion);
+  updateChips();
+  if(sc.type==='talk') renderTalk(sc);
+  if(sc.type==='choice') renderChoice(sc);
+  if(sc.type==='explore') renderExplore(sc);
+}
+function renderTalk(sc){
+  if(app.state.sceneId==='final_question' && !app.state.finalQuestionRevealed){
+    els.speaker.textContent = '';
+    els.text.textContent = '';
+    els.sub.textContent = '';
+    return;
+  }
+  const line = (sc.lines || [])[app.state.idx] || {speaker:'',text:''};
+  els.speaker.textContent = line.speaker || '';
+  els.text.textContent = line.text || '';
+  els.sub.textContent = sc.sub || '';
+}
+function renderChoice(sc){
+  els.speaker.textContent = sc.speaker || '';
+  els.text.textContent = sc.text || '';
+  els.sub.textContent = sc.sub || '';
+  (sc.options || []).forEach(op => {
+    const b = document.createElement('button');
+    b.className = 'choice' + (sc.cardMode ? ' cardchoice' : '');
+    if(sc.cardMode){
+      b.innerHTML = `<span>${op.text}</span>${op.meta ? `<span class="cardmeta">${op.meta}</span>` : ''}`;
+    } else {
+      b.textContent = op.text;
+    }
+    b.onclick = () => {
+      if(op.effects) addFlags(op.effects);
+      if(op.onPick) op.onPick(app);
+      const nextId = op.getNext ? op.getNext(app) : op.next;
+      enterScene(nextId);
+    };
+    els.choices.appendChild(b);
+  });
+}
+function renderExplore(sc){
+  const slot = app.state.sceneData[app.state.sceneId] || {seen:[], lastText:'', readyNext:false};
+  if(!('lastText' in slot)) slot.lastText = '';
+  if(!('readyNext' in slot)) slot.readyNext = false;
+  app.state.sceneData[app.state.sceneId] = slot;
+  app.state.exploreReadyNext = !!slot.readyNext;
+
+  els.speaker.textContent = sc.speaker || '';
+  els.text.textContent = slot.lastText || sc.intro || '';
+  els.sub.textContent = `見られるのはあと ${Math.max((sc.maxTaps || 0) - slot.seen.length, 0)} つ`;
+  els.spotHelp.textContent = slot.readyNext ? 'タップで次へ進む' : (sc.help || '気になるところを見ておく');
+  els.spotHelp.classList.remove('hidden');
+
+  (sc.spots || []).forEach(spot => {
+    const b = document.createElement('button');
+    b.className = 'spot' + (slot.seen.includes(spot.id) ? ' used' : '');
+    b.textContent = spot.label;
+    b.style.left = (spot.x || 0) + '%';
+    b.style.top = (spot.y || 0) + '%';
+    b.style.width = (spot.w || 18) + '%';
+    b.style.height = (spot.h || 8) + '%';
+    b.onclick = () => {
+      if(slot.seen.includes(spot.id) || slot.seen.length >= (sc.maxTaps || 0)) return;
+      slot.seen.push(spot.id);
+      if(spot.effects) addFlags(spot.effects);
+      if(spot.clue){ app.state.flags[spot.clue] = 1; registerClue(spot.clue); }
+      let t = spot.text;
+      if(spot.contextText){
+        Object.entries(spot.contextText).forEach(([k,v])=>{
+          if(k.startsWith('after_')){
+            const need = k.replace('after_','');
+            if(slot.seen.includes(need)) t += '\n\n' + v;
+          }
+        });
+      }
+      if(spot.memory && spot.memory.when(app)) t += '\n\n' + spot.memory.text;
+      slot.lastText = t;
+      els.text.textContent = t;
+      if(slot.seen.length >= (sc.maxTaps || 0)){
+        slot.readyNext = true;
+        app.state.exploreReadyNext = true;
+        els.sub.textContent = '見られるのはあと 0 つ';
+        els.spotHelp.textContent = 'タップで次へ進む';
+        els.advance.classList.remove('hidden');
+        Array.from(els.spotLayer.querySelectorAll('.spot')).forEach(n => {
+          if(slot.seen.includes(n.textContent === spot.label ? spot.id : '')) {}
+        });
+        b.classList.add('used');
+      } else {
+        els.sub.textContent = `見られるのはあと ${Math.max((sc.maxTaps || 0) - slot.seen.length, 0)} つ`;
+        render();
+      }
+    };
+    els.spotLayer.appendChild(b);
+  });
+}
+function advance(){
+  const sc = currentScene();
+  if(!sc) return;
+  if(Date.now() < (app.state.noAdvanceUntil || 0)) return;
+  if(sc.type === 'explore' && app.state.exploreReadyNext){
+    nextScene();
+    return;
+  }
+  if(sc.type !== 'talk') return;
+  if(app.state.idx < (sc.lines || []).length - 1){
+    app.state.idx++;
+    render();
+  } else {
+    nextScene();
+  }
+}
+
+function showTitle(){ document.body.classList.remove('focus-room'); closeModal(); els.title.classList.remove('hidden'); }
+function hideTitle(){ els.title.classList.add('hidden'); }
+function closeModal(){ els.modal.classList.remove('show'); }
+function showModal(type){
+  els.modal.classList.add('show');
+  els.modalBody.innerHTML='';
+  if(type==='save' || type==='load'){
+    els.modalTitle.textContent = type==='save' ? 'セーブ' : 'ロード';
+    const slots = JSON.parse(localStorage.getItem(SAVE_KEY) || '[]');
+    for(let i=0;i<3;i++){
+      const slot = slots[i];
+      const row = document.createElement('div');
+      row.className = 'slot';
+      row.innerHTML = `<div><div>スロット ${i+1}</div><div class="slotMeta">${slot ? `${slot.sceneId} / ${slot.label}` : '未使用'}</div></div>`;
+      const acts = document.createElement('div');
+      acts.className = 'slotActions';
+      const b = document.createElement('button');
+      b.textContent = type==='save' ? '保存' : '読込';
+      b.onclick = () => {
+        if(type==='save'){
+          slots[i] = {state: app.state, sceneId: app.state.sceneId, label: currentScene()?.label || ''};
+          localStorage.setItem(SAVE_KEY, JSON.stringify(slots));
+          closeModal();
+        } else if(slot){
+          app.state = hydrateState(slot.state);
+          closeModal();
+          hideTitle();
+          enterScene(app.state.sceneId || 'ch01_intro');
+        }
+      };
+      acts.appendChild(b);
+      row.appendChild(acts);
+      els.modalBody.appendChild(row);
+    }
+  } else {
+    els.modalTitle.textContent = '手帳';
+    const mkTitle = t => { const d=document.createElement('div'); d.className='truthTitle'; d.textContent=t; return d; };
+    const clueBlock = document.createElement('div'); clueBlock.className='truthBlock'; clueBlock.appendChild(mkTitle('見つけた断片'));
+    const clueRow = document.createElement('div'); clueRow.className='tagRow';
+    (app.state.clues.found.length ? app.state.clues.found : ['まだない']).forEach(id=>{ const tag=document.createElement('div'); tag.className='tag'; tag.textContent=CLUE_META[id] || id; clueRow.appendChild(tag); });
+    clueBlock.appendChild(clueRow); els.modalBody.appendChild(clueBlock);
+    const linkBlock = document.createElement('div'); linkBlock.className='truthBlock'; linkBlock.appendChild(mkTitle('つないだ真実'));
+    const linkRow = document.createElement('div'); linkRow.className='tagRow';
+    (app.state.clues.linked.length ? app.state.clues.linked : ['まだない']).forEach(id=>{ const tag=document.createElement('div'); tag.className='tag'; tag.textContent=truthLabel(id); linkRow.appendChild(tag); });
+    linkBlock.appendChild(linkRow); els.modalBody.appendChild(linkBlock);
+    const weakBlock = document.createElement('div'); weakBlock.className='truthBlock'; weakBlock.appendChild(mkTitle('まだ弱い仮説'));
+    const weakRow = document.createElement('div'); weakRow.className='tagRow';
+    ((app.state.clues.weak||[]).length ? app.state.clues.weak : ['まだない']).forEach(id=>{ const tag=document.createElement('div'); tag.className='tag'; tag.textContent=truthLabel(id); weakRow.appendChild(tag); });
+    weakBlock.appendChild(weakRow); els.modalBody.appendChild(weakBlock);
+    const hypBlock = document.createElement('div'); hypBlock.className='truthBlock'; hypBlock.appendChild(mkTitle('選んだ仮説'));
+    if(Object.keys(app.state.hypotheses||{}).length){
+      Object.entries(app.state.hypotheses).forEach(([k,v])=>{ const line=document.createElement('div'); line.className='truthLine'; const ev = app.state.hypothesisEvidence[k] ? ` / 根拠: ${evidenceLabel(k, app.state.hypothesisEvidence[k])}` : ''; line.textContent = `${k} / ${hypothesisLabel(k,v)}${ev} / ${hypothesisStrengthLabel(k)}`; hypBlock.appendChild(line); });
+    } else { const line=document.createElement('div'); line.className='truthLine'; line.textContent = 'まだない'; hypBlock.appendChild(line); }
+    els.modalBody.appendChild(hypBlock);
+    const board = ensureMinoriBoard();
+    const boardBlock = document.createElement('div'); boardBlock.className='truthBlock'; boardBlock.appendChild(mkTitle('競合仮説ボード / ミノリの包み'));
+    minoriClaimsView().forEach(v=>{ const line=document.createElement('div'); line.className='truthLine ' + (v.state==='rejected' ? 'claimRejectedLine' : (v.id==='avoidance_of_definition' && minoriCoreAlive() ? 'claimCoreLine' : '')); const mark = v.state==='rejected' ? '【棄却】' : (v.id==='avoidance_of_definition' && minoriCoreAlive() ? '【残存】' : ''); line.textContent = `${mark}${v.label} / 確信 ${v.confidence} / 揺らぎ ${v.noise}`; boardBlock.appendChild(line); });
+    if(board.rejectedClaimIds.length){ const line=document.createElement('div'); line.className='truthLine claimRejectedLine'; line.textContent = '切った読み: ' + board.rejectedClaimIds.map(id=>board.claims[id].label).join(' / '); boardBlock.appendChild(line); }
+    els.modalBody.appendChild(boardBlock);
+    const renBoardObj = ensureRenBoard();
+    const renBlock = document.createElement('div'); renBlock.className='truthBlock'; renBlock.appendChild(mkTitle('競合仮説ボード / レンの冗談'));
+    renClaimsView().forEach(v=>{ const line=document.createElement('div'); line.className='truthLine ' + (v.state==='rejected' ? 'claimRejectedLine' : (v.id==='fear_of_silence' && renCoreAlive() ? 'claimCoreLine' : '')); const mark = v.state==='rejected' ? '【棄却】' : (v.id==='fear_of_silence' && renCoreAlive() ? '【残存】' : ''); line.textContent = `${mark}${v.label} / 確信 ${v.confidence} / 揺らぎ ${v.noise}`; renBlock.appendChild(line); });
+    if(renBoardObj.rejectedClaimIds.length){ const line=document.createElement('div'); line.className='truthLine claimRejectedLine'; line.textContent = '切った読み: ' + renBoardObj.rejectedClaimIds.map(id=>renBoardObj.claims[id].label).join(' / '); renBlock.appendChild(line); }
+    els.modalBody.appendChild(renBlock);
+    const toruBoardObj = ensureToruBoard();
+    const toruBlock = document.createElement('div'); toruBlock.className='truthBlock'; toruBlock.appendChild(mkTitle('競合仮説ボード / トオルの未送信'));
+    toruClaimsView().forEach(v=>{ const line=document.createElement('div'); line.className='truthLine ' + (v.state==='rejected' ? 'claimRejectedLine' : (v.id==='preservation_fixation' && toruCoreAlive() ? 'claimCoreLine' : '')); const mark = v.state==='rejected' ? '【棄却】' : (v.id==='preservation_fixation' && toruCoreAlive() ? '【残存】' : ''); line.textContent = `${mark}${v.label} / 確信 ${v.confidence} / 揺らぎ ${v.noise}`; toruBlock.appendChild(line); });
+    if(toruBoardObj.rejectedClaimIds.length){ const line=document.createElement('div'); line.className='truthLine claimRejectedLine'; line.textContent = '切った読み: ' + toruBoardObj.rejectedClaimIds.map(id=>toruBoardObj.claims[id].label).join(' / '); toruBlock.appendChild(line); }
+    els.modalBody.appendChild(toruBlock);
+    if((app.state.chainState||[]).filter(v=>!String(v).startsWith('applied:')).length){ const chainBlock=document.createElement('div'); chainBlock.className='truthBlock'; chainBlock.appendChild(mkTitle('返却の連鎖')); (app.state.chainState||[]).filter(v=>!String(v).startsWith('applied:')).slice(-5).forEach(msg=>{ const line=document.createElement('div'); line.className='truthLine chainLine'; line.textContent=msg; chainBlock.appendChild(line); }); els.modalBody.appendChild(chainBlock); }
+    const historyBlock = document.createElement('div'); historyBlock.className='truthBlock'; historyBlock.appendChild(mkTitle('照合の履歴'));
+    const hist = (app.state.clues.history || []).filter(v => v.type==='link_reason' || v.type==='link_fail');
+    if(hist.length){ hist.slice(-6).forEach(item=>{ const line=document.createElement('div'); line.className='truthLine'; line.textContent = formatLinkHistoryItem(item); historyBlock.appendChild(line); }); }
+    else { const line=document.createElement('div'); line.className='truthLine'; line.textContent = 'まだない'; historyBlock.appendChild(line); }
+    els.modalBody.appendChild(historyBlock);
+    const logBlock = document.createElement('div'); logBlock.className='truthBlock'; logBlock.appendChild(mkTitle('観測の記録'));
+    ['ch01','ch02','ch03','ch04','ch05','ch06','ch07','ch08','ch09'].forEach(id=>{ const line=document.createElement('div'); line.className='truthLine'; line.textContent = resolveLogText(id); logBlock.appendChild(line); });
+    els.modalBody.appendChild(logBlock);
+    if(app.state.finalLogText){ const finalBlock=document.createElement('div'); finalBlock.className='truthBlock'; finalBlock.style.maxWidth='85%'; finalBlock.style.margin='0 auto'; finalBlock.appendChild(mkTitle('最終記録')); const line=document.createElement('div'); line.className='truthLine'; line.style.whiteSpace='pre-wrap'; line.style.lineHeight='1.8'; line.textContent=app.state.finalLogText; finalBlock.appendChild(line); els.modalBody.appendChild(finalBlock); }
+    const rawBlock = document.createElement('div'); rawBlock.className='truthBlock'; rawBlock.appendChild(mkTitle('内部フラグ'));
+    Object.entries(app.state.flags).forEach(([k,v]) => { const r = document.createElement('div'); r.className = 'flag'; r.innerHTML = `<span>${k}</span><span>${v}</span>`; rawBlock.appendChild(r); });
+    els.modalBody.appendChild(rawBlock);
+  }
+}
+
+document.getElementById('newGameBtn').onclick = () => { app.state = defaultState(); hideTitle(); enterScene('ch01_intro'); };
+document.getElementById('loadFromTitleBtn').onclick = () => showModal('load');
+document.getElementById('saveBtn').onclick = () => showModal('save');
+document.getElementById('loadBtn').onclick = () => showModal('load');
+document.getElementById('flagsBtn').onclick = () => showModal('flags');
+document.getElementById('titleBtn').onclick = () => showTitle();
+document.getElementById('textbox').onclick = e => { if(e.target.closest('button')) return; advance(); };
+document.getElementById('sceneWrap').onclick = e => { if(e.target.closest('.spot')) return; if(app.state.exploreReadyNext) advance(); };
+els.modal.onclick = e => { if(e.target.id === 'modal') closeModal(); };
+
+function buildHypothesisScene(chId, label, background, text, nextResult){
+  return {
+    type:'choice', label, background,
+    text,
+    sub:'仮説だけでは足りない。今の手帳から、そう思う根拠を一つ添える。',
+    cardMode:true,
+    options:HYPOTHESIS_DB[chId].options.map(op=>({
+      text:op.text,
+      meta: (()=>{ const sup = (HYPOTHESIS_SUPPORT[chId]||{})[op.id] || []; return `合いそうな根拠 ${sup.length}`; })(),
+      onPick:g=>chooseHypothesis(chId, op.id),
+      next:`${chId}_evidence`
+    }))
+  };
+}
+function buildHypothesisEvidenceScene(chId, label, background, nextResult){
+  return {
+    type:'choice', label, background,
+    build(game){
+      const opts = evidenceOptionsForChapter(chId).map(ev => ({
+        text:ev.text,
+        meta:'手帳の断片',
+        onPick:g=>chooseHypothesisEvidence(chId, ev.id),
+        next: nextResult
+      }));
+      if(!opts.length){
+        return {text:'この章の根拠として使える断片が足りない。仮説は置けても、裏づけが弱い。', options:[{text:'そのまま進む', next: nextResult}]};
+      }
+      return {text:`${hypothesisLabel(chId, game.state.hypotheses[chId])} と考えるなら、どの断片を根拠にする。`, sub:'根拠の置き方で、同じ仮説でも重さが変わる。', cardMode:true, options:opts};
+    }
+  };
+}
+
+
+function hydrateState(saved){
+  const base = defaultState();
+  const state = Object.assign({}, base, saved || {});
+  state.flags = Object.assign({}, base.flags, (saved && saved.flags) || {});
+  state.clues = Object.assign({}, base.clues, (saved && saved.clues) || {});
+  state.sceneData = Object.assign({}, base.sceneData, (saved && saved.sceneData) || {});
+  state.hypotheses = Object.assign({}, base.hypotheses, (saved && saved.hypotheses) || {});
+  state.hypothesisEvidence = Object.assign({}, base.hypothesisEvidence, (saved && saved.hypothesisEvidence) || {});
+  state.hypothesisStrength = Object.assign({}, base.hypothesisStrength, (saved && saved.hypothesisStrength) || {});
+  state.rebuttals = Object.assign({}, base.rebuttals, (saved && saved.rebuttals) || {});
+  state.hypothesisBoards = Object.assign({}, base.hypothesisBoards, (saved && saved.hypothesisBoards) || {});
+  state.rejectedClaims = Array.isArray(saved && saved.rejectedClaims) ? saved.rejectedClaims : [];
+  state.proofLog = Array.isArray(saved && saved.proofLog) ? saved.proofLog : [];
+  state.chainState = Array.isArray(saved && saved.chainState) ? saved.chainState : [];
+  return state;
+}
+
+const scenes = {
+  ch01_intro:{type:'talk',label:'第一章 文化祭後片づけ',background:'classroom',lines:[
+    {speaker:'',text:'文化祭が終わったあとの教室は、まだ少しだけ浮かれている。黒板のすみに残るイラスト、机の脚にからんだ紙テープ、教卓に積まれた出欠簿と回収物。その片づけの最中、17番の鍵だけが見当たらない。落とし物タグには、拾得場所だけが空白のまま残っている。窓際には夕方の光が斜めに差していて、いつもの教室なのに、今日は一か所だけ話の続きが抜け落ちているみたいだった。'},
+    {speaker:'ナナオ',text:'17番だけ、記録は帰ってる。でも鍵は帰ってない'},
+    {speaker:'ミノリ',text:'タグも変。物はいるのに、場所だけいない'}
+  ],next:'ch01_explore'},
+  ch01_explore:{type:'explore',label:'第一章 文化祭後片づけ',background:'classroom',intro:'先生が本気で片づけを始める前に、気になるところを見る。',maxTaps:2,next:'ch01_intervene',help:'見られるのは二つまで。誰かが掃除当番を始める前に。チャイムはすぐ鳴る。',spots:[
+    {id:'keybox',label:'鍵箱',x:74,y:22,w:16,h:8,text:'17番の列に返却済みの印だけがついている。鍵そのものはない。',contextText:{after_tag:'場所を書けなかったタグを見たあとだと、この不在はただの紛失よりも、残したままにされた感じが強くなる。',after_shelf:'別の番号の鍵が戻されているのを見たあとだと、この列の不在は偶然ではなく操作の結果に見える。'},effects:{ACT_LOOK:1}},
+    {id:'shelf',label:'倉庫棚',x:60,y:48,w:22,h:8,text:'別の番号の鍵が、17番の位置に戻されている。',contextText:{after_keybox:'返却済みの印がついた列に、別の番号の鍵が戻されている。ただのミスではない。誰かが意図的に入れ替えた形だ。'},effects:{ACT_LOOK:1}},
+    {id:'tag',label:'タグ',x:14,y:64,w:18,h:8,text:'落とし物タグの拾得場所だけが空白のままだ。',contextText:{after_keybox:'返却済みなのにない鍵を見たあとだと、この空白も書き忘れではなく、残せなかった事情の跡に見えてくる。'},effects:{ACT_LOOK:1}}
+  ],onExit(game){
+    const s = game.state.sceneData.ch01_explore?.seen || [];
+    if(s.includes('keybox') && s.includes('shelf')) addFlags({MYS_LOST:2, CLUE_KEY_SWAP:1});
+    else if(s.includes('tag')) addFlags({MYS_LOST:1});
+  }},
+  ch01_intervene:{type:'choice',label:'第一章 文化祭後片づけ',background:'classroom',text:'ここで、どう動く。',options:[
+    {text:'ナナオに、差し替えじゃないかと言う',effects:{ACT_SPEAK:1, REL_NANAO:1, CLUE_KEY_SWAP:1},onPick:g=>g.state.ch01Choice='nanao',next:'ch01_result'},
+    {text:'タグの空白をミノリに伝える',effects:{ACT_SPEAK:1, REL_MINORI:1, MYS_LOST:1},onPick:g=>g.state.ch01Choice='minori',next:'ch01_result'},
+    {text:'流す',effects:{},onPick:g=>g.state.ch01Choice='pass',next:'ch01_result'}
+  ]},
+  ch01_result:{type:'talk',label:'第一章 文化祭後片づけ',background:'classroom',build(game){
+    const c=game.state.ch01Choice;
+    let t='17番はこの章では見つからない。けれど、ないはずの鍵だけが、なぜか教室の空気に残っている。片づけのざわめきが大きくなるほど、その不在だけが逆に輪郭を持っていく。六角レンチは雑巾のにおいと段ボールのきしむ音の中で、話が終わっていない感じだけを持ち帰ることになる。';
+    if(c==='nanao') t='ナナオはすぐには否定しなかった。その一拍の沈黙が、六角レンチには何よりも重かった。17番は見つからないままなのに、ただの紛失ではないという感触だけが現実味を持ち始める。教室を出るころには、鍵探しのはずだった放課後が、少しだけ別の話に足を踏み入れている。';
+    if(c==='minori') t='ミノリはタグの空白を見つめて、書かなかったんじゃなくて書けなかったのかもね、と小さく言った。17番はまだ見つからない。でも、返せなかったものは物だけじゃないのだと、六角レンチはこの日から考え始める。家に帰ってからも、タグの空白だけが妙に目についた。名前より先に、言えなかった事情の方を想像してしまう。';
+    if(c==='pass') t='何も言わずに流したはずなのに、流しきれなかった違和感だけが残る。17番の不在も、空白のタグも、黙ったことでむしろ形を持ってしまった。忘れようとしたものほど、次の朝に先回りして待っている。六角レンチはその嫌な几帳面さを、もう知り始めていた。';
+    return {lines:[{speaker:'',text:t}],next:'ch01_hypothesis'};
+  }},
+
+  ch02_intro:{type:'talk',label:'第二章 落とし物推理タイム',background:'board',lines:[
+    {speaker:'',text:'十月の終わりに拾った違和感は、そのまま十一月へ持ち越された。学校はもう文化祭のことなんて忘れた顔をしていた。朝のホームルームも、購買のパン争奪戦も、いつもの速さで過ぎていく。なのに落とし物一覧には、返却済みのはずの英単語帳がまた載っている。赤いリストバンドは持ち主が見えているのに、誰も名乗り出ない。戻ってくるはずのない物と、戻りたくても戻れない気持ちだけが、掲示板の端で肩を並べている。昼休みのざわめきの中で、その列だけがやけに静かで、見ている方の喉まで少し乾いた。'},
+    {speaker:'レン',text:'返したはずの物が戻るの、学園ミステリーがすぎるだろ'},
+    {speaker:'トオル',text:'気持ち悪い、で片づけるとあとで刺さる気がする'}
+  ],next:'ch02_explore'},
+  ch02_explore:{type:'explore',label:'第二章 落とし物推理タイム',background:'board',intro:'昼休みが終わる前に、二つだけ確かめる。',maxTaps:2,next:'ch02_intervene',help:'見られるのは二つまで。誰かが掃除当番を始める前に。チャイムはすぐ鳴る。',spots:[
+    {id:'case',label:'実物ケース',x:15,y:58,w:22,h:8,text:'赤いリストバンドの内側に、小さな文字が書いてある。',contextText:{after_note:'記号だけの返却記録を見たあとだと、この小さな文字も名前の代わりに残された手がかりに見える。'},effects:{ACT_LOOK:1, MYS_LOST:1},memory:{when:g=>g.state.flags.MYS_LOST>=1,text:'タグに場所が書けなかったのと、同じ理由かもしれない。'}},
+    {id:'note',label:'担当ノート',x:66,y:56,w:20,h:8,text:'返却記録に、名前ではなく記号だけが書かれた行がある。',contextText:{after_list:'一覧で戻ってきた英単語帳と、この記号の行がつながって見える。ただの手違いだけでは済まない。'},effects:{ACT_LOOK:1, MYS_LOST:1},clue:'CLUE_NOTE_SYMBOL'},
+    {id:'list',label:'一覧',x:14,y:24,w:22,h:8,text:'返却済みの英単語帳だけが、また一覧に戻っている。',contextText:{after_case:'持ち主の見えるリストバンドを見たあとだと、戻ってきた英単語帳も誰かの事情で動けなくなった物に見えてくる。'},effects:{ACT_LOOK:1}}
+  ]},
+  ch02_intervene:{type:'choice',label:'第二章 落とし物推理タイム',background:'board',build(game){
+    const seen = game.state.sceneData.ch02_explore?.seen || [];
+    const opts = [
+      {text:'持ち主はわかるけど、名前を言うのは違う気がすると言う',effects:{ACT_SPEAK:1, MYS_LOST:1},onPick:g=>g.state.ch02Choice='protect',next:'ch02_result'},
+      {text:'様子を見る',effects:{ACT_LOOK:1},onPick:g=>g.state.ch02Choice='wait',next:'ch02_result'}
+    ];
+    if(seen.includes('note')) opts.unshift({text:'ミノリに、記号だけの行があったと伝える',effects:{ACT_SPEAK:1, REL_MINORI:1},onPick:g=>g.state.ch02Choice='note',next:'ch02_result'});
+    return {text:'ここで、どう動く。', options:opts};
+  }},
+  ch02_result:{type:'talk',label:'第二章 落とし物推理タイム',background:'board',build(game){
+    const c=game.state.ch02Choice;
+    let t='その場で片づいたものもある。けれど、返らなかった物だけは妙にはっきり残る。学校は小さな未回収を見慣れているふりをするが、六角レンチの中では、それがもうただの備品管理では済まないものへ変わり始めていた。昼休みが終わってチャイムが鳴っても、掲示板の前で見た列だけが頭の中に残り続ける。次の授業のノートを開いても、余白に浮かぶのは英単語じゃなくて、返れなかった理由の方だった。';
+    if(c==='note') t='記号だけの行があると伝えた時、ミノリは一瞬だけ黙った。名前を消して残されるものがある。その事実が、落とし物の一覧を急に生々しくする。一つは返り、一つは返らない。その差が、この章の終わりまで六角レンチの目に残った。放課後、下駄箱へ向かう途中でも、その記号だけが頭の片隅でやけに整って見えた。';
+    if(c==='protect') t='持ち主の名前を言わない方を選んだことで、その場は少しだけ守られた。けれど守られたぶん、言えなかった理由の方が濃く残る。返却済みの英単語帳と、返れないリストバンドが、妙に同じ列へ並んで見えた。やさしさのつもりで伏せたことが、あとから別の重さで胸に残る。';
+    if(c==='wait') t='様子を見ることも選べる。だが見ているだけでは、返らないものの輪郭だけがはっきりする。六角レンチはこの時、介入しないことにも手触りがあると初めて知る。その手触りは軽くない。何もしていないのに、指先だけが妙に後味を覚える。';
+    return {lines:[{speaker:'',text:t}],next:'ch02_hypothesis'};
+  }},
+
+  ch03_intro:{type:'talk',label:'第三章 雨の日の旧校舎通路',background:'corridor',lines:[
+    {speaker:'',text:'落とし物の列が頭から離れないまま、十一月の終わりに雨が降った。旧校舎側通路はいつもより長く見えた。特別教室棟へ抜ける廊下は、人がいないだけで急に秘密めく。濡れた足跡は途中で消え、扉の下にだけ水がたまっている。誰かがそこを通った気配だけがあり、通ったはずの人間はどこにも見えない。学校の地図にはあるのに、学校生活には載っていない行き先みたいだった。濡れた上履きの底が床に吸いつくたび、六角レンチは帰りたいのか見たいのか、自分でも少しわからなくなる。'},
+    {speaker:'六角レンチ',text:'ここ、前からこんな顔してたっけ'},
+    {speaker:'ナナオ',text:'管理上は、ないはずの扉だね。感じ悪いくらいに'}
+  ],next:'ch03_explore'},
+  ch03_explore:{type:'explore',label:'第三章 雨の日の旧校舎通路',background:'corridor',intro:'放課後の見回りが来る前に、二つだけ見られる。',maxTaps:2,next:'ch03_intervene',help:'雨の日の廊下は、目を離すとすぐ普通の顔に戻る。',spots:[
+    {id:'foot',label:'足跡',x:46,y:56,w:16,h:8,text:'濡れた足跡が、扉の手前で不自然に消えている。',contextText:{after_wall:'剥がされた表示の跡を見たあとだと、足跡はただ消えたのではなく、存在ごと隠された入口へ吸い込まれた形に見える。'},effects:{ACT_LOOK:1, MYS_TIME:1}},
+    {id:'door',label:'扉の下',x:76,y:52,w:16,h:8,text:'扉の下だけ水がたまっている。ここ、鍵が変わってる跡がある。',contextText:{after_foot:'足跡が消えた先と、この扉の位置がぴたりと重なる。誰かがここへ入ったと考える方が自然だ。'},effects:{ACT_LOOK:1, MYS_TIME:1},clue:'CLUE_NANAO_DOOR'},
+    {id:'wall',label:'壁の跡',x:18,y:26,w:18,h:8,text:'古い貼り紙の跡。何かの表示が剥がされている。',contextText:{after_foot:'足跡の消え方を見たあとだと、この剥がれた表示は、通路の先に何かを名指ししないための処置に見える。'},effects:{ACT_LOOK:1, MYS_LOST:1}}
+  ]},
+  ch03_intervene:{type:'choice',label:'第三章 雨の日の旧校舎通路',background:'corridor',text:'ここで、どう動く。',options:[
+    {text:'一緒にいる相手に言う',effects:{ACT_SPEAK:1, REL_NANAO:1},onPick:g=>g.state.ch03Choice='tell',next:'ch03_result'},
+    {text:'奥まで一人で行く',effects:{ACT_LOOK:1, MYS_TIME:1, MYS_LOST:1},onPick:g=>g.state.ch03Choice='alone',next:'ch03_result'},
+    {text:'気にせず先へ出る',effects:{},onPick:g=>g.state.ch03Choice='leave',next:'ch03_result'}
+  ]},
+  ch03_result:{type:'talk',label:'第三章 雨の日の旧校舎通路',background:'corridor',build(game){
+    const c=game.state.ch03Choice;
+    let t='扉は確かにある。だが、まだ入れない。17番との関係も、ここでは断言できない。ただ、六角レンチの中で、鍵、落とし物、放送とは別だったはずの違和感が、初めて同じ線の上へ並び始める。濡れた靴底のまま教室棟へ戻る途中、廊下の蛍光灯まで少しだけ別の学校のものに見えた。';
+    if(c==='tell') t='言葉にしたことで、扉はただの気味悪い場所ではなくなった。誰かと共有された違和感は、次の章でもう一度戻ってくる。ナナオが管理記録を気にし始めたことも、後から効いてくる。口に出したせいで、見なかったことには戻れなくなったとも言える。';
+    if(c==='alone') t='一人で奥まで行ったぶん、見えたものは濃い。だが濃い情報ほど、自分の中だけに留まりやすい。六角レンチはこの日、誰にも説明できない確信を一つ抱えたまま通路を出る。濡れた制服の裾だけが現実で、見たものの方がむしろ夢みたいだった。';
+    if(c==='leave') t='気にせず先へ出ることもできた。けれど、見なかったことにした扉ほど、あとから記憶に残る。通り過ぎたはずの場所が、以後ずっと頭の片隅で待ち続ける。次に雨が降ったら、またあそこを思い出す。その予感だけで十分いやだった。';
+    return {lines:[{speaker:'',text:t}],next:'ch03_hypothesis'};
+  }},
+
+  ch04_intro:{type:'talk',label:'第四章 昼休み放送',background:'broadcast',lines:[
+    {speaker:'',text:'雨の日の扉を見てから数日後、昼休みの放送に、原稿にない一文が混ざる。\n\n終わりたくない人は、声を残してください。\n\nその瞬間、机を引く音まで少し遅れて、誰も冗談にしないまま昼休みが一拍だけ止まった。'},
+    {speaker:'ミノリ',text:'……今の、原稿にないよね'},
+    {speaker:'レン',text:'笑って流すには、ちょっと本気すぎるな'}
+  ],next:'ch04_explore'},
+  ch04_explore:{type:'explore',label:'第四章 昼休み放送',background:'broadcast',intro:'昼休みが終わる前に、放送室の前後を二つだけ見る。',maxTaps:2,next:'ch04_intervene',help:'昼休みの終わりは短い。違和感だけ拾う。',spots:[
+    {id:'memo',label:'手書きメモ',x:48,y:24,w:18,h:8,text:'放送内容とは無関係な短い文。誰のものかわからない。',contextText:{after_script:'紙にないものが、声になる前の形で残っている。原稿へ入る前に、どこかで一度ためらわれた感じがある。'},effects:{ACT_LOOK:1, MYS_VOICE:1},clue:'CLUE_MEMO_HAND'},
+    {id:'sticky',label:'付箋',x:72,y:42,w:18,h:8,text:'教室番号と一文字違う数字が書かれている。',contextText:{after_memo:'手書きメモの迷いと、付箋のずれが同じ方向を向いている。届ける相手がいたのに、届かなかった形だ。'},effects:{ACT_LOOK:1, MYS_VOICE:1}},
+    {id:'script',label:'原稿',x:18,y:58,w:18,h:8,text:'一文が入る余白はない。なのに、聞こえた。',contextText:{after_sticky:'付箋のずれを見たあとだと、声の誤りではなく、届かなかった相手の方が先に思い浮かぶ。'},effects:{ACT_LOOK:1}}
+  ]},
+  ch04_intervene:{type:'choice',label:'第四章 昼休み放送',background:'broadcast',build(game){
+    const seen = game.state.sceneData.ch04_explore?.seen || [];
+    const opts = [
+      {text:'原稿にない一文だったとミノリにはっきり伝える',effects:{ACT_SPEAK:1, REL_MINORI:1, MYS_VOICE:1},next:'ch04_result'},
+      {text:'レンの冗談に乗って空気を変える',effects:{REL_REN:1},next:'ch04_result'}
+    ];
+    if(seen.includes('memo')) opts.unshift({text:'マイク前のメモが関係あるかもしれないとナナオに言う',effects:{ACT_SPEAK:1, REL_NANAO:1, MYS_VOICE:1},next:'ch04_result'});
+    return {text:'ここで、どう動く。', options:opts};
+  }},
+  ch04_result:{type:'talk',label:'第四章 昼休み放送',background:'broadcast',build(game){
+    let t='原稿にない一文は、その場では説明できない。ミノリの読み間違いでも、レンの悪ふざけでも、機材の故障でもない。だからこそ、声の謎は初めてただの違和感ではなく、追わずにいられない輪郭を持ち始める。昼休みが終わっていつもの授業へ戻っても、教室の天井スピーカーだけがまだ続きを知っている顔をしていた。';
+    if(game.state.flags.REL_NANAO>=1 && game.state.flags.CLUE_MEMO_HAND) t='ナナオへ手書きメモの話をしたことで、放送の異常は機材の故障ではなく周辺から混ざるものだという見方が強まった。声の謎はここで一段、原因ではなく構造の側へ寄る。見えない配線のかわりに、見えない感情の流れを考え始めた時点で、もう後戻りはきかなかった。';
+    else if(game.state.flags.REL_MINORI>=1) t='ミノリにはっきり伝えたことで、異変は読み間違いでは済まなくなった。本人が自分の声を疑い始めたこと自体が、この章の大きな進展だった。声は形がないぶん、いちど気になり始めると教室のどこにでも潜む。';
+    else if(game.state.flags.REL_REN>=1) t='レンの冗談に乗れば、その場の空気は守られる。だが守られたあとで、説明できない一文だけが教室のどこかに残る。軽くしたはずなのに軽くならない、その感じがかえって怖い。笑って終わったはずの昼休みが、放課後になっても少しだけ続いていた。';
+    return {lines:[{speaker:'',text:t}],next:'ch04_hypothesis'};
+  }},
+
+  ch05_intro:{type:'talk',label:'第五章 クリスマス前の短い寄り道',background:'winter',lines:[
+    {speaker:'',text:'冬休みが見え始めたころ、ミノリは渡しかけた包みを結局渡さない。トオルのスマホには、送信前の\nこの前はごめ\nだけが見えて消える。レンも何かを出しかけてやめる。教室の会話は続いているのに、三人の手元だけが別の時間で止まって見えた。'},
+    {speaker:'レン',text:'今日のみんな、妙に途中で止まるな'},
+    {speaker:'六角レンチ',text:'それ、自分もエントリー済みなんだけど'}
+  ],next:'ch05_explore'},
+  ch05_explore:{type:'explore',label:'第五章 クリスマス前の短い寄り道',background:'winter',intro:'見えてしまったものを、見なかったことにするか決める。',maxTaps:2,next:'ch05_intervene',help:'放課後の会話の流れの中で、二つだけ拾う。',spots:[
+    {id:'bag',label:'紙袋の底',x:18,y:64,w:18,h:8,text:'小さな包みが一つ残っている。宛名はない。',contextText:{after_phone:'送られなかった言葉と、渡されなかった包みが同じ場面に残っている。形は違うのに、どちらも途中で止まっている。'},effects:{ACT_LOOK:1, MYS_LOST:1}},
+    {id:'renhand',label:'レンの手',x:54,y:54,w:18,h:8,text:'ポケットの中で何かを持っている。出しかけて、やめた。',contextText:{after_bag:'渡せなかった人間が、一人ではないとわかる。残された包みの気配が、レンの手元にも薄く移っている。'},effects:{ACT_LOOK:1, MYS_LOST:1}},
+    {id:'phone',label:'スマホ画面',x:72,y:26,w:18,h:8,text:'送信前の画面に、途中までの文字だけが見える。\n\nこの前はごめ',effects:{ACT_LOOK:1, MYS_LOST:1}},
+    {id:'sticker',label:'床のシール',x:34,y:82,w:18,h:8,text:'小さな星形のシール。誰かの包みに貼られていたものかもしれない。',contextText:{after_bag:'残された包みと床のシールがつながる。途中でほどけた気配だけが、床に落ちている。'},effects:{ACT_LOOK:1},clue:'CLUE_STICKER'}
+  ]},
+  ch05_intervene:{type:'choice',label:'第五章 クリスマス前の短い寄り道',background:'winter',text:'ここで、どう動く。',options:[
+    {text:'ミノリに、渡すなら今日の方がいいと言う',effects:{ACT_SPEAK:1, REL_MINORI:1, MYS_LOST:1},onPick:(g)=>g.state.ch05Choice='minori',next:'ch05_result'},
+    {text:'トオルに、今の送らないのと聞く',effects:{ACT_SPEAK:1, REL_TORU:1, MYS_LOST:1},onPick:(g)=>g.state.ch05Choice='toru',next:'ch05_result'},
+    {text:'自分から何かを渡す',effects:{ACT_RETURN:1},onPick:(g)=>g.state.ch05Choice='self',next:'ch05_result'},
+    {text:'何も言わない',effects:{ACT_LOOK:1},onPick:(g)=>g.state.ch05Choice='none',next:'ch05_result'}
+  ]},
+  ch05_result:{type:'talk',label:'第五章 クリスマス前の短い寄り道',background:'winter',onEnter(game){
+    applyRenBoardEvidenceOnce('ch05_base');
+    if(game.state.ch05Choice==='toru') applyToruBoardEvidenceOnce('ch05_toru');
+  },build(game){
+    let t='誰も大げさには困らない。だからこそ、渡されなかったものと送られなかった言葉だけが、小さくきれいなまま残る。あとから思い返した時に一番消えないのは、こういう何でもない顔をした中断なのかもしれない。イルミネーションの話題や冬休み前の浮ついた空気の中で、止まった手だけが妙に静かだった。';
+    if(game.state.flags.ACT_RETURN>=1) t='六角レンチ自身が何かを渡したことで、この章だけは眺めるだけの時間で終わらなかった。返すという行為は小さくても現実の重さを持つ。その感触が、第十章へ届く種になる。指先に残った紙の重みが、次に誰かへ踏み込む時の基準になる。';
+    else if(game.state.flags.REL_TORU>=1) t='トオルに問いを向けたことで、送られなかった言葉は単なる未送信ではなく、完成を待ち続ける保留なのだとわかる。言葉を止める癖が、この章からはっきり見え始めた。返せないものは、物より先に文章の形をしていることもあるのだと知る。';
+    else if(game.state.flags.REL_MINORI>=1) t='ミノリに声をかけたことで、渡せなかった包みはただの小道具ではなくなった。残った一つが、この先ずっと教室の空気に影を作る。冬休みが近づくほど、その影だけはきれいに片づかない。';
+    t += '\n\nレンは、ああいうのは一人の空気だろと言う。トオルは、止まった手が一つではなかった気がするとだけ言う。ナナオは、包みの折り目が一度開かれてまた戻されていると事実だけを置く。';
+    return {lines:[{speaker:'',text:t}],next:'ch05_hypothesis'};
+  }},
+
+  ch06_intro:{type:'talk',label:'第六章 小さな初詣',background:'shrine',lines:[
+    {speaker:'',text:'年が明けても、去年からの違和感はちゃんとついてきた。一月の神社は静かなのに、願いだけがやけに多い。制服の上から着たコートの袖が冷たくなる。書きかけで消された絵馬がある。ミノリが買ったお守りは、自分のためではなく誰かへ渡る向きをしている。去年の絵馬の写真には、今年と同じような残り方をした文字がある。ここで初めて、今起きていることが今年だけの出来事ではないとわかる。賽銭箱の前で鳴る鈴の音が遠く感じるぶん、残った文字だけが妙に近い。'},
+    {speaker:'トオル',text:'去年も、ここに来た'},
+    {speaker:'六角レンチ',text:'その言い方、去年の続きみたいだ'}
+  ],next:'ch06_explore'},
+  ch06_explore:{type:'explore',label:'第六章 小さな初詣',background:'shrine',intro:'部活帰りの冷えた手のまま、二つだけ確かめる。',maxTaps:2,next:'ch06_intervene',help:'見られるのは二つまで。誰かが掃除当番を始める前に。',spots:[
+    {id:'ema',label:'絵馬',x:18,y:30,w:18,h:8,text:'書きかけで消された絵馬。前半の文字だけが残っている。',contextText:{after_amulet:'誰かのために選ばれたお守りを見たあとだと、この絵馬も自分の願いというより届かなかった相手への言葉に見えてくる。'},effects:{ACT_LOOK:1, MYS_LOST:1}},
+    {id:'board',label:'去年の掲示',x:10,y:68,w:20,h:8,text:'去年の絵馬の写真がある。同じ文字が、今年の書きかけにも残っている。',contextText:{after_ema:'今年の消された絵馬と、去年の写真がぴたりと重なる。同じ種類のためらいが一年越しで残っている。'},effects:{ACT_LOOK:1, MYS_LOST:1, MYS_TIME:1},clue:'CLUE_OLD_EMA',memory:{when:g=>!!g.state.flags.CLUE_NOTE_SYMBOL,text:'去年の誰かも、名前の代わりに残したのかもしれない。'}},
+    {id:'amulet',label:'お守り棚',x:70,y:36,w:18,h:8,text:'同じ種類のお守りが一つだけ売り切れている。',contextText:{after_ema:'書けなかった願いと、誰かのために選ばれたお守りが同じ線へ並ぶ。渡せなかったものは、言葉だけではない。'},effects:{ACT_LOOK:1, MYS_LOST:1}}
+  ]},
+  ch06_intervene:{type:'choice',label:'第六章 小さな初詣',background:'shrine',build(game){
+    const seen = game.state.sceneData.ch06_explore?.seen || [];
+    const opts = [
+      {text:'自分の絵馬に正直に書く',effects:{ACT_SPEAK:1},onPick:(g)=>g.state.ch06Choice='self',next:'ch06_result'},
+      {text:'何も書かずに戻す',effects:{ACT_LOOK:1},onPick:(g)=>g.state.ch06Choice='none',next:'ch06_result'}
+    ];
+    if(seen.includes('amulet')) opts.unshift({text:'ミノリに、そのお守り最初から選んでた？と聞く',effects:{ACT_SPEAK:1, REL_MINORI:1, MYS_LOST:1},onPick:(g)=>g.state.ch06Choice='minori',next:'ch06_result'});
+    if(seen.includes('board')) opts.unshift({text:'トオルに、去年もここに来た？と聞く',effects:{ACT_SPEAK:1, REL_TORU:1},onPick:(g)=>g.state.ch06Choice='toru',next:'ch06_result'});
+    return {text:'ここで、どう動く。', options:opts.slice(0,4)};
+  }},
+  ch06_result:{type:'talk',label:'第六章 小さな初詣',background:'shrine',onEnter(game){
+    const seen = game.state.sceneData.ch06_explore?.seen || [];
+    if(game.state.ch06Choice==='toru') { applyMinoriBoardEvidenceOnce('ch06_toru'); applyRenBoardEvidenceOnce('ch06_toru'); applyToruBoardEvidenceOnce('ch06_toru'); }
+    if(game.state.ch06Choice==='minori') applyRenBoardEvidenceOnce('ch06_minori');
+    if(seen.includes('amulet')) applyMinoriBoardEvidenceOnce('ch06_amulet');
+  },build(game){
+    let t='願いは書かれても、全部は表に出ない。去年から続いている気配だけが、今の問題の後ろに薄く残る。六角レンチたちが追っているのは、ただの校内の異変ではなく、誰かが置いていった続きなのだと、ここでようやく確信に近づく。初詣の帰り道、駅までの会話がやけに短くなったのも、そのせいだった。';
+    if(game.state.flags.CLUE_OLD_EMA) t='去年の掲示を見たことで、この謎は今年だけの出来事ではなくなった。誰かの未返却が一年越しで学校に残り、それが今の自分たちの時間へ触れている。その背筋の冷たさが、この章の収穫だった。知らない先輩の話なのに、もう他人事の距離では読めない。';
+    t += '\n\nレンは偶然だと言い、ミノリはそれなら気味が悪いと笑う。トオルは去年も来たとだけ答え、ナナオは同じ文字が続くなら偶然では片づけにくいと事実だけを見る。';
+    return {lines:[{speaker:'',text:t}],next:'ch06_hypothesis'};
+  }},
+
+  ch07_intro:{type:'talk',label:'第七章 バレンタイン周辺',background:'valentine',lines:[
+    {speaker:'',text:'初詣の帰りに拾った冷たさをまだ手放せないまま、二月の教室には包装紙の音だけが少し多い。机の中にはチョコの袋、黒板のすみには誰かのいたずら書き、でも教室の隅には宛名のない包みが置かれている。誰かが渡しかけて、笑いでごまかした。その顔だけが、一瞬おかしい。バレンタインは明るい行事のはずなのに、この日だけは、笑いが未返却を隠す薄い紙みたいに見える。甘い匂いばかり満ちているぶん、言えなかったことだけが余計に苦かった。'},
+    {speaker:'レン',text:'今日のおまえら、妙にやさしいな。逆に怖い'},
+    {speaker:'六角レンチ',text:'それ、茶化すとあとで刺さるやつかも'}
+  ],next:'ch07_explore'},
+  ch07_explore:{type:'explore',label:'第七章 バレンタイン周辺',background:'valentine',intro:'終礼のざわつきが残るうちに、二つだけ見る。',maxTaps:2,next:'ch07_intervene',help:'見られるのは二つまで。誰かが掃除当番を始める前に。',spots:[
+    {id:'gift',label:'包み',x:14,y:60,w:18,h:8,text:'宛名のない包み。リボンの結び方に見覚えがある。',contextText:{after_blackboard:'包みと消された文字が、どちらも渡せなかった同じ失敗に見えてくる。',after_door:'渡しかけてやめた場所を見たあとだと、この包みは置かれているのではなく、戻されてしまったものに見える。'},effects:{ACT_LOOK:1, MYS_LOST:1},memory:{when:g=>!!g.state.flags.CLUE_STICKER,text:'クリスマスの時に拾ったシールと、同じ感じがする。'}},
+    {id:'blackboard',label:'黒板の端',x:74,y:24,w:16,h:8,text:'消された文字の断片。声にすれば届いたかもしれない形が残っている。',contextText:{after_gift:'包みを見たあとだと、この消された文字も渡す前に引っ込められた言葉の跡だとはっきりする。'},effects:{ACT_LOOK:1, MYS_VOICE:1}},
+    {id:'door',label:'ドア近く',x:80,y:74,w:14,h:8,text:'渡しかけてやめた子が立っていた場所。何も残っていないのに、足だけ止まった感じがある。',contextText:{after_gift:'包みを見たあとだと、この場所は単なる立ち位置ではなく、渡せなかった直後の空白として見えてくる。'},effects:{ACT_LOOK:1}}
+  ]},
+  ch07_intervene:{type:'choice',label:'第七章 バレンタイン周辺',background:'valentine',text:'ここで、どう動く。',options:[
+    {text:'宛名のない包みの持ち主を探す',effects:{ACT_SPEAK:1, MYS_LOST:1},onPick:(g)=>g.state.ch07Choice='owner',next:'ch07_result'},
+    {text:'笑ってごまかした人の方を追う',effects:{ACT_SPEAK:1, MYS_VOICE:1},onPick:(g)=>g.state.ch07Choice='voice',next:'ch07_result'},
+    {text:'自分から返す、渡す',effects:{ACT_RETURN:1},onPick:(g)=>g.state.ch07Choice='self',next:'ch07_result'},
+    {text:'見て見ぬふりをする',effects:{ACT_LOOK:1},onPick:(g)=>g.state.ch07Choice='none',next:'ch07_result'}
+  ]},
+  ch07_result:{type:'talk',label:'第七章 バレンタイン周辺',background:'valentine',onEnter(game){
+    const seen = game.state.sceneData.ch07_explore?.seen || [];
+    if(seen.includes('gift')) applyMinoriBoardEvidenceOnce('ch07_gift');
+    if(game.state.ch07Choice==='voice') { applyMinoriBoardEvidenceOnce('ch07_voice'); applyRenBoardEvidenceOnce('ch07_voice'); applyToruBoardEvidenceOnce('ch07_voice'); }
+  },build(game){
+    let t='未返却の感情が、ここでいちばん露骨に見える。包み、黒板、笑い損ねた顔。どれに触れたかで、第九章の棚がただの物の山になるか、誰かの時間の残りになるかが変わってくる。イベントみたいに明るい日の方が、返せなかったものはかえって目立つ。笑い声が多いぶん、飲み込んだ側の沈黙もよく響く。';
+    if(game.state.flags.ACT_RETURN>=1) t='自分から返す側に回ったことで、この章は観察から行為へ変わった。未返却は怖いだけのものではなく、手を伸ばせば少しだけ形を変えられるものだと、六角レンチはここで体に覚え始める。たぶんこの感触がないままだと、第九章の扉を前にしても足が止まっていた。';
+    else if(game.state.flags.MYS_VOICE>=1 && game.state.flags.ACT_SPEAK>=1) t='笑ってごまかした側を追ったことで、声の謎は放送室だけのものではないとはっきりする。教室の中で飲み込まれた言葉が、そのまま後の放送の一文へつながっている感じが、ここでかなり現実味を持つ。誰かの声は、消えたのではなく、場所を変えて残っていたのだ。';
+    t += '\n\nレンは行事の気まずさだと軽く言う。ミノリはそれだけではない気がすると口を閉じる。トオルは、笑ったあとに止まった人間の方を見ていたと言う。';
+    return {lines:[{speaker:'',text:t}],next:'ch07_hypothesis'};
+  }},
+
+
+  ch01_hypothesis: buildHypothesisScene('ch01','第一章 仮説','classroom','この時点で、17番の不在をどう解釈する。','ch01_hypothesis_result'),
+  ch01_evidence: buildHypothesisEvidenceScene('ch01','第一章 根拠','classroom','ch01_hypothesis_result'),
+  ch01_hypothesis_result:{type:'talk',label:'第一章 仮説の手触り',background:'classroom',build(game){
+    const id=game.state.hypotheses.ch01;
+    const strength = app.state.hypothesisStrength['ch01'];
+    let t='管理ミスだと考えると、その場の説明はつく。だが説明がつくぶん、妙に引っかかりが残る。片づけの秩序の内側で、誰かの感情が押しつぶされる感じがある。';
+    if(id==='conceal') t='隠蔽だと考えると、誰が何を守ろうとしたのかが気になり始める。犯人探しの方向へ寄るぶん、感情の形はまだ見えにくい。';
+    if(id==='protect') t='守るための差し替えだと仮説を置いた瞬間、鍵の不在は管理ではなく感情の問題になる。まだ証拠は足りない。だが、この仮説だけは後の章で何度も戻ってくる。';
+    if(strength==='strong') t += '\n\n見た断片と仮説の噛み合い方が良い。まだ確証ではないが、この推理には骨がある。';
+    else if(strength==='weak') t += '\n\n方向は合っている。ただ、根拠の置き方が少し甘く、手応えはまだ揺れている。';
+    else t += '\n\n根拠がずれている。考えた痕跡は残るが、この推理はどこか空回りしている。';
+    return {lines:[{speaker:'',text:t}],next:'ch02_intro'};
+  }},
+
+  ch02_hypothesis: buildHypothesisScene('ch02','第二章 仮説','board','戻ってきた落とし物を、どう読む。','ch02_hypothesis_result'),
+  ch02_evidence: buildHypothesisEvidenceScene('ch02','第二章 根拠','board','ch02_hypothesis_result'),
+  ch02_hypothesis_result:{type:'talk',label:'第二章 仮説の手触り',background:'board',build(game){
+    const id=game.state.hypotheses.ch02;
+    const strength = app.state.hypothesisStrength['ch02'];
+    let t='事務ミスだと考えると、一度は安心できる。だが安心したあとで、名前を出せないリストバンドの意味だけが余計に残る。';
+    if(id==='stuck') t='返りきれないものがあると考えると、一覧の見え方が変わる。物は管理の対象ではなく、途中で止まった関係の痕跡になる。';
+    if(id==='prank') t='悪ふざけだと見ると、誰かの軽さばかりが目につく。けれど、そう考えるほど名乗り出ない側の沈黙が説明しにくくなる。';
+    if(strength==='strong') t += '\n\n記号と物の戻り方が、仮説を後ろから押している。名指しできないものほど、この推理に重く乗る。';
+    else if(strength==='weak') t += '\n\n見えている方向は悪くないが、まだ断片同士が強く噛み合っていない。';
+    else t += '\n\n根拠と仮説の噛み合わせが悪く、説明だけが先に立つ。';
+    return {lines:[{speaker:'',text:t}],next:'ch03_intro'};
+  }},
+
+  ch03_hypothesis: buildHypothesisScene('ch03','第三章 仮説','corridor','この扉は、何のためにある。','ch03_hypothesis_result'),
+  ch03_evidence: buildHypothesisEvidenceScene('ch03','第三章 根拠','corridor','ch03_hypothesis_result'),
+  ch03_hypothesis_result:{type:'talk',label:'第三章 仮説の手触り',background:'corridor',build(game){
+    const id=game.state.hypotheses.ch03;
+    const strength = app.state.hypothesisStrength['ch03'];
+    let t='古い倉庫の名残だと考えると、見たものはただの不気味さへ戻る。だが足跡と水たまりの説明が、どこかで余る。';
+    if(id==='entrance') t='入口だと考えた瞬間、扉は背景ではなく目的地になる。ここから先、17番は鍵ではなく行き先の記号として記憶され始める。';
+    if(id==='damage') t='雨漏りのせいだと考えると、現実的な理由はつく。けれど現実的に片づけたぶん、誰にも言えない確信だけが自分の中へ沈む。';
+    if(strength==='strong') t += '\n\n足跡と扉と壁の跡が、同じ場所を指している。ここから先の確信はかなり現実味を持つ。';
+    else if(strength==='weak') t += '\n\n入口だという感じは残るが、まだただの不気味さを抜けきれていない。';
+    else t += '\n\n見たものの意味づけが空回りし、扉の重さだけが先に残る。';
+    return {lines:[{speaker:'',text:t}],next:'ch04_intro'};
+  }},
+
+  ch04_hypothesis: buildHypothesisScene('ch04','第四章 仮説','broadcast','原稿にない一文は、何として混ざった。','ch04_hypothesis_result'),
+  ch04_evidence: buildHypothesisEvidenceScene('ch04','第四章 根拠','broadcast','ch04_hypothesis_result'),
+  ch04_hypothesis_result:{type:'talk',label:'第四章 仮説の手触り',background:'broadcast',build(game){
+    const id=game.state.hypotheses.ch04;
+    const strength = app.state.hypothesisStrength['ch04'];
+    let t='機材の不具合だと考えると、放送室の話で済ませられる。だがその説明では、教室の止まり方の方が説明できない。';
+    if(id==='leak') t='言えなかった感情の漏れだと仮説を置くと、放送は事故ではなく代読になる。この仮説は後半で、かなり強い力を持つ。';
+    if(id==='adlib') t='ミノリの無意識だと考えると、声の責任は個人へ寄る。だが寄せるほど、本人が知らない形で届いてしまうことの怖さだけが増す。';
+    if(strength==='strong') t += '\n\n放送前の断片が、漏れた声と一本につながる。ここから先、事故としては見られなくなる。';
+    else if(strength==='weak') t += '\n\n声の異常は感じ取れているが、まだ誰の何が漏れたのかは定まっていない。';
+    else t += '\n\n一文の不気味さは残るが、原因の読み方がずれたぶん理解は浅い。';
+    return {lines:[{speaker:'',text:t}],next:'ch05_intro'};
+  }},
+
+  ch05_hypothesis: buildHypothesisScene('ch05','第五章 仮説','winter','クリスマス前の中断を、どう読む。','ch05_hypothesis_result'),
+  ch05_evidence: buildHypothesisEvidenceScene('ch05','第五章 根拠','winter','ch05_hypothesis_result'),
+  ch05_hypothesis_result:{type:'talk',label:'第五章 仮説の手触り',background:'winter',build(game){
+    const id=game.state.hypotheses.ch05;
+    const strength = app.state.hypothesisStrength['ch05'];
+    let t='空気が悪かっただけだと考えると、その場は丸く収まる。だが、包みとメッセージとレンの手元が同時に止まった理由までは薄い。';
+    if(id==='many') t='複数の人間が同じように止まったと考えると、この章は一人の恋愛ではなく、未返却の感情が連鎖している場面になる。学校全体の温度が、ここでかなり見えてくる。';
+    if(id==='romance') t='一人の恋愛感情が中心だと考えると、物語はわかりやすくなる。だがわかりやすくなるぶん、トオルやレンの止まり方が説明からこぼれる。';
+    if(strength==='strong') t += '\n\n一人ではなく複数が止まっていたという見立てに、包みと手元の動きがきちんと添ってくる。';
+    else if(strength==='weak') t += '\n\n空気の濃さは掴めているが、まだ一人の出来事へ寄せて読みすぎている。';
+    else t += '\n\n根拠が弱く、出来事を単純化しすぎている。';
+    if(app.state.hypotheses.ch05==='romance') t += '\n\nただ、この読みは後で崩れるかもしれない。今はまだ、一人の感情に見えすぎている。';
+    return {lines:[{speaker:'',text:t}],next:'ch06_intro'};
+  }},
+
+  ch06_hypothesis: buildHypothesisScene('ch06','第六章 仮説','shrine','去年の痕跡は、今とどうつながっている。','ch06_hypothesis_result'),
+  ch06_evidence: buildHypothesisEvidenceScene('ch06','第六章 根拠','shrine','ch06_hypothesis_result'),
+  ch06_hypothesis_result:{type:'talk',label:'第六章 仮説の手触り',background:'shrine',build(game){
+    const id=game.state.hypotheses.ch06;
+    const strength = app.state.hypothesisStrength['ch06'];
+    let t='偶然だと考えると、一度は軽くなる。だが軽くしたはずのあとで、去年の文字だけがしつこく残る。';
+    if(id==='carry') t='持ち越しだと考えた瞬間、この物語は今年だけの青春ではなくなる。知らない先輩の未返却が、自分たちの現在へ手を伸ばしている。';
+    if(id==='superstition') t='神社の噂だと見ると、話は民間伝承みたいになる。けれど、その説明では鍵箱の裏紙の現実味だけが逆に際立ってしまう。';
+    if(strength==='strong') t += '\n\n去年の痕跡を、今年の出来事へきちんと橋渡しできている。ここで初めて物語の時間が伸びる。';
+    else if(strength==='weak') t += '\n\n持ち越しの感触はあるが、まだ偶然との境界が曖昧だ。';
+    else t += '\n\n去年の痕跡をまだ外側から眺めている。物語の芯には届いていない。';
+    if(app.state.hypotheses.ch06==='coincidence') t += '\n\n偶然として片づけるには、少しだけ証拠が残りすぎている。後でこの読みは揺さぶられるかもしれない。';
+    return {lines:[{speaker:'',text:t}],next:'ch07_intro'};
+  }},
+
+  ch07_hypothesis: buildHypothesisScene('ch07','第七章 仮説','valentine','この日のバレンタインは、何を一番よく見せた。','ch07_hypothesis_result'),
+  ch07_evidence: buildHypothesisEvidenceScene('ch07','第七章 根拠','valentine','ch07_hypothesis_result'),
+  ch07_hypothesis_result:{type:'talk',label:'第七章 仮説の手触り',background:'valentine',build(game){
+    const id=game.state.hypotheses.ch07;
+    const strength = app.state.hypothesisStrength['ch07'];
+    let t='行事の気まずさだと考えると、この日は一度きりの失敗に見える。だが一度きりにするには、ここまでの未返却が多すぎる。';
+    if(id==='visible') t='未返却の感情がもっとも可視化された日だと考えると、第九章の棚ラベルは急に他人事ではなくなる。渡せなかった、言えなかった、冗談にした。その全部がこの教室で実際に起きていた。';
+    if(id==='private') t='一人だけの問題だと考えると、包みの意味ははっきりする。だがはっきりしたぶん、笑いでごまかした空気の広がりの方が説明から漏れる。';
+    if(strength==='strong') t += '\n\nこの日の気まずさを、一人の出来事ではなく教室全体の未返却として掴めている。第九章の棚ラベルが他人事ではなくなる。';
+    else if(strength==='weak') t += '\n\n見えているものは近いが、まだ個人の問題と全体の気配が分かれたままだ。';
+    else t += '\n\n場の空気は読めても、なぜそうなったかの骨組みはまだ掴めていない。';
+    return {lines:[{speaker:'',text:t}],next:'ch07_refute_intro'};
+  }},
+
+  ch07_refute_intro:{type:'talk',label:'第七章 棄却の儀式',background:'valentine',build(game){
+    const vm = minoriClaimsView().filter(v=>v.state!=='rejected');
+    const lines = [{speaker:'',text:'準備室の扉へ向かう前に、あなたの中のノイズを一つ切り捨てる必要がある。正解を選ぶのではない。今の時点で、あり得ない読みを殺す。'}];
+    lines.push({speaker:'',text:vm.map(v=>`・${v.label} / 確信 ${v.confidence} / 揺らぎ ${v.noise}`).join('\n')});
+    return {lines, next:'ch07_refute'};
+  }},
+  ch07_refute:{type:'choice',label:'第七章 棄却の儀式',background:'valentine',build(game){
+    const board = minoriBoard();
+    const opts = board.activeClaimIds.map(id=>({text:`この読みを退ける: ${board.claims[id].label}`, onPick:()=>rejectMinoriClaim(id), next:'ch07_refute_result'}));
+    return {text:'退けるべき読みを一つ選ぶ。切った仮説は、手帳に赤線で残る。', sub:'間違って核心を切れば、第九章で見える文字が濁る。', cardMode:true, options:opts};
+  }},
+  ch07_refute_result:{type:'talk',label:'第七章 棄却の結果',background:'valentine',build(game){
+    const board = minoriBoard();
+    const killed = board.rejectedClaimIds[board.rejectedClaimIds.length-1];
+    let t='一つの読みを、自分の手で切った。これで視界は狭くなる。だが、そのかわりに残した読みだけが深くなる。';
+    if(killed==='cliche_love') t='ただの恋愛感情という甘い読みを殺したことで、包みは急に重くなる。渡せなかったのではなく、渡すことで何かが決まりすぎるのを恐れた可能性が前へ出る。';
+    if(killed==='avoidance_of_definition') t='核心に近い読みを自分で切ってしまった。これでこの先の部屋は、少し曇る。棚のラベルは見えても、意味がうまく定着しない。';
+    if(killed==='not_her_own') t='他人のものかもしれないという逃げ道を切ったことで、ミノリ自身の問題として読む圧力が強まる。だが、その強さが逆に視野を狭めるかもしれない。';
+    return {lines:[{speaker:'',text:t}], next:'ch08_intro'};
+  }},
+
+  ch08_intro:{type:'talk',label:'第八章 先輩送別準備と収束',background:'broadcast',lines:[
+    {speaker:'',text:'二月の終わり、送別準備の放送に原稿にない締めの一文が混ざる。掲示板の日付が透けている。17番はまだない。声、日付、鍵。別々に見えていた三つの違和感が、ここで初めて一つの場所を指し始める。卒業の飾りつけで少し華やいだ廊下のはずなのに、六角レンチにはそこだけ色が落ちて見えた。'},
+    {speaker:'ミノリ',text:'私、これ以上、通したくない'},
+    {speaker:'レン',text:'じゃあ、誰かが言うしかない'}
+  ],next:'ch08_explore'},
+  ch08_explore:{type:'explore',label:'第八章 先輩送別準備と収束',background:'broadcast',intro:'この章だけは、三つ全部見られる。',maxTaps:3,next:'ch08_link_intro',help:'全部見たあとで、手がかりを自分で結びつける。',spots:[
+    {id:'desk',label:'放送室の机',x:18,y:58,w:18,h:8,text:'原稿にない一文の痕跡。',effects:{ACT_LOOK:1, MYS_VOICE:1},memory:{when:g=>!!g.state.flags.CLUE_MEMO_HAND,text:'あの手書きメモと同じ筆圧かもしれない。'}},
+    {id:'board',label:'掲示板',x:66,y:28,w:18,h:8,text:'別の日付の紙が透けている。17番の欄だけが更新されていない。',effects:{ACT_LOOK:1, MYS_TIME:1},memory:{when:g=>!!g.state.flags.CLUE_NANAO_DOOR,text:'あの扉と同じ日付だ。'}},
+    {id:'key',label:'鍵箱の裏',x:76,y:60,w:16,h:8,text:'小さな紙が貼られている。\n\n返せなかったものは、ここに置いておきます。\nいつか誰かが返してくれたら、それでいいです。\n\n去年の文化祭の日付。',effects:{ACT_LOOK:1, MYS_LOST:1},clue:'CLUE_KEYBOX_PAPER',memory:{when:g=>!!g.state.flags.CLUE_KEY_SWAP,text:'最初の片づけの日から、ここへつながっていた。'}}
+  ]},
+  ch08_link_intro:{type:'talk',label:'第八章 手がかりの照合',background:'broadcast',lines:[
+    {speaker:'',text:'ここまで集めた断片を、そのまま並べるだけでは足りない。誰の何が、なぜ返っていないのか。自分で二つを結びつけて、ひとつの真実として言葉にしなければ、17番の先はただの不気味な扉のままだ。机の上に広げた手帳のメモはばらばらなのに、組み合わせた瞬間だけ急に呼吸を始める。'}
+  ],next:'ch08_link_first'},
+  ch08_link_first:{type:'choice',label:'第八章 手がかりの照合',background:'broadcast',build(game){
+    const opts = CLUE_SELECT_ORDER.filter(id => game.state.clues.found.includes(id)).map(id => ({text:CLUE_META[id], onPick:g=>{g.state.linkDraftFirst=id; g.state.linkDraftSecond=null; g.state.linkDraftTruth=null;}, next:'ch08_link_second'}));
+    if(opts.length < 2) return {text:'照合できるだけの断片が足りない。', options:[{text:'先へ進む', next:'ch08_gate'}]};
+    return {text:'最初の断片を選ぶ。', sub:`スロット1: 未選択
+スロット2: 空`, cardMode:true, options:opts.map(o=>Object.assign({meta:'証拠カード'},o))};
+  }},
+  ch08_link_second:{type:'choice',label:'第八章 手がかりの照合',background:'broadcast',build(game){
+    const first = game.state.linkDraftFirst;
+    const opts = CLUE_SELECT_ORDER.filter(id => game.state.clues.found.includes(id) && id !== first).map(id => ({text:CLUE_META[id], onPick:g=>{ g.state.linkDraftSecond=id; g.state.linkDraftTruth = (findTruthByPair(first, id) || {}).id || null; }, getNext:g=> g.state.linkDraftTruth ? 'ch08_link_reason' : 'ch08_link_result', next:'ch08_link_result'}));
+    return {text:`最初の断片は「${CLUE_META[first] || first}」。次に何をつなぐ。`, sub:`スロット1: ${CLUE_META[first] || first}
+スロット2: 未選択
+
+正しい二枚なら仮説が立つ。`, cardMode:true, options:opts.map(o=>Object.assign({meta:'証拠カード'},o))};
+  }},
+  ch08_link_reason:{type:'choice',label:'第八章 理由の確定',background:'broadcast',build(game){
+    const truthId = game.state.linkDraftTruth;
+    const rule = LINK_REASON_DB[truthId];
+    if(!truthId || !rule) return {text:'仮説を言葉にできない。', options:[{text:'先へ進む', next:'ch08_gate'}]};
+    return {text:rule.prompt, sub:'理由まで届いて、初めて真実は固定される。', options:rule.options.map(op=>({text:op.text, onPick:g=>{ finalizeLinkReason(op.id); g.state.linkDraftFirst=null; g.state.linkDraftSecond=null; g.state.linkDraftTruth=null; }, next:'ch08_link_result'}))};
+  }},
+  ch08_link_result:{type:'talk',label:'第八章 手がかりの照合',background:'broadcast',build(game){
+    const id = game.state.lastLinkedTruth;
+    const res = game.state.lastLinkResolution;
+    if(!id) return {lines:[{speaker:'',text:'二つの断片を並べても、まだ一つの真実にはならない。わかったつもりで進むには、ここは少しだけ重すぎる。'}], next:'ch08_link_continue'};
+    const recipe = TRUTH_RECIPES.find(r => r.id === id);
+    if(res === 'success') return {lines:[{speaker:'',text:`二つの断片がつながり、その理由も言葉になった。
+
+${recipe.label}
+
+誰かが返せなかったものは、ただ残っているのではなく、理由を持って留まり続けている。その理由が見えたことで、17番の先はただの怪異ではなくなる。`}], next:'ch08_link_continue'};
+    return {lines:[{speaker:'',text:`仮説は立った。
+
+${recipe.label}
+
+けれど理由の置き方がまだ甘い。方向は合っているのに、決め手が足りない。真実というより、まだ手放せない仮説として胸の内に残る。`}], next:'ch08_link_continue'};
+  }},
+  ch08_link_continue:{type:'choice',label:'第八章 手がかりの照合',background:'broadcast',build(game){
+    const total = (game.state.clues.linked.length + (game.state.clues.weak||[]).length);
+    const canMore = game.state.clues.found.length >= 4 && total < 2;
+    const text = canMore ? 'もう一つ、別の断片も結べる。ここで立てた真実が多いほど、17番の先は読みやすくなる。' : 'ここまでで十分だ。結びつけたこと、結びつけきれなかったことの両方を持って、17番の前へ戻る。';
+    const opts = canMore ? [{text:'もう一組、断片を結ぶ', onPick:g=>{ g.state.linkDraftFirst=null; g.state.linkDraftSecond=null; g.state.linkDraftTruth=null; }, next:'ch08_link_first'},{text:'先へ進む', next:'ch08_gate'}] : [{text:'先へ進む', next:'ch08_gate'}];
+    return {text, options:opts};
+  }},
+  ch08_gate:{type:'talk',label:'第八章 先輩送別準備と収束',background:'broadcast',build(game){
+    const lost = game.state.flags.MYS_LOST;
+    const enoughInsight = hasTruth('room_belongs_to_unreturned') || hasTruth('regret_from_last_year') || hasTruth('door_leads_to_saved_regret');
+    if(lost >= 4 && enoughInsight){
+      return {lines:[{speaker:'',text:'17番の先へ向かう理由が、ようやく自分の中でつながった。名前のない先輩の未返却と、自分たちの未返却が同じ形で並ぶと気づいた時、入口は鍵ではなく理解の方から開く。六角レンチは、今さら引き返す方がよほど不自然だと、そこで初めて腹をくくる。'}], next:'ch09_full_intro'};
+    }
+    if(lost >= 2){
+      return {lines:[{speaker:'',text:'入口は見える。でも、まだ意味の輪郭が薄い。物は見えるのに、誰の何かとまでは読めない。足りないまま進むしかない夜もある。だからこそ、この先で見えるものは少し痛い。わからないまま扉に手をかけるのは、夜のプールに制服のまま足を入れる感じに少し似ていた。'}], next:'ch09_dim_intro'};
+    }
+    return {lines:[{speaker:'',text:'17番の前まで来て、止まる。怖いからではない。まだ、そこへ向かう理由が自分の言葉になっていないからだ。他人の未返却を見に行くには、自分の中の未返却にも触れなければならない。鍵穴を前にしたまま、六角レンチは自分の手の温度だけが妙に現実だと知る。'}], next:'ch08_gate_locked'};
+  }},
+  ch08_gate_locked:{type:'talk',label:'第八章 入口不足',background:'broadcast',lines:[
+    {speaker:'',text:'ここまで集めた手がかりでは、まだ17番の先へ向かう理由が足りない。鍵はある。紙もある。違和感も揃っている。けれど、自分の中で何が返せていないのかまで届いていない。'},
+    {speaker:'',text:'知らない先輩の未返却に触れるには、自分たちの中の未返却を、もう少し先に見つけておく必要があった。'}
+  ],next:'ending_fail'},
+
+  ch09_full_intro:{type:'talk',label:'第九章 17番の先に入る夜',background:'room',build(game){
+    const lines = [
+      {speaker:'',text:'17番の鍵は、扉に合う。存在しない文化祭準備室の中には、物ではなく状況で分けられた棚が並んでいる。\n\n渡せなかった\n言えなかった\n受け取れなかった\n見送った\n冗談にした'}
+    ];
+    if(game.state.flags.CLUE_NOTE_SYMBOL) lines.push({speaker:'',text:'棚の記号が読める。ここにあるのは、ただの物ではない。誰の何かが、まだ返っていない形で置かれている。見える情報が増えるほど、準備室は怪異から現実へ近づいていく。だから逆に、痛みも増す。読めるということは、誰かの事情を勝手に受け取ってしまうことでもある。'});
+    if(hasTruth('room_belongs_to_unreturned')) lines.push({speaker:'',text:'差し替えられた鍵と記号だけの返却記録が、ここをただの隠し部屋ではなく、未返却の保管庫だと教えている。誰か一人の秘密ではなく、学校に残された感情の保存庫なのだとわかる。放課後の校舎にだけたまる種類の沈黙が、棚ごとにラベルをもらって並んでいる。'});
+    else if(hasWeakTruth('room_belongs_to_unreturned')) lines.push({speaker:'',text:'ここが未返却の保管庫だという仮説は立つ。でも理由がまだ弱いせいで、棚の意味もところどころ曇っている。わかったつもりと、本当にわかることの差がこの部屋では痛い。'});
+    if(game.state.flags.CLUE_OLD_EMA || hasTruth('regret_from_last_year')) lines.push({speaker:'',text:'いちばん奥に、去年の文化祭から残っている棚がある。名前のない先輩の未返却が、最初にこの部屋を作ったのだとわかる。六角レンチたちはずっと自分たちの学校の謎を追っていたつもりだったのに、実際には誰かの続きを歩かされていたのだ。去年の空気がまだ乾ききらずに残っているみたいで、胸の奥だけが少しひんやりした。'});
+    else if(hasWeakTruth('regret_from_last_year')) lines.push({speaker:'',text:'去年から続いている予感はある。でも、それが一人の先輩の祈りだったと確信するにはまだ足りない。部屋の奥だけが、少し遠く見える。'});
+    if(hasTruth('voice_is_leaking_regret')) lines.push({speaker:'',text:'放送に混ざった一文は、ここへ置かれていた言えなかった感情の漏れだったのかもしれない。声の謎と準備室の棚が、ここでようやく一つの現象としてつながる。'});
+    else if(hasWeakTruth('voice_is_leaking_regret')) lines.push({speaker:'',text:'放送とこの部屋はたぶん同じ線にある。ただ、そのつながりはまだはっきり言い切れない。声の残り方だけが、妙にここへ似ている。'});
+    if(minoriRejectedTruth()) lines.push({speaker:'',text:'ミノリの棚だけ、札の文字が少し濁る。ただのノイズではない。自分で切った読みが、ここで視界の穴になって戻ってきている。'});
+    else if(minoriKilledCliche()) lines.push({speaker:'',text:'ミノリの棚の札だけは、妙に鮮明だ。ただの恋愛では片づかないと自分で切ったぶん、残った読みの輪郭だけがここで強く立ち上がる。'});
+    lines.push({speaker:'',text:'さらにその奥に、今年の棚がある。六角レンチたちが、今年作ってしまったものが、もうここにある。他人の物語を追っていたはずなのに、最後の最後でそれが自分たちの鏡になる。ここがこの部屋のいちばん冷たくて、いちばんやさしいところだった。'});
+    return {lines, next:'ch09_intervene'};
+  }},
+  ch09_dim_intro:{type:'talk',label:'第九章 17番の先に入る夜',background:'room',lines:[
+    {speaker:'',text:'17番の鍵は合う。部屋には棚と物が並んでいる。でも、それが誰の何なのかまではまだ読み取れない。だからこそ、目の前にあるのに届かない感覚だけが先に来る。理解が足りないまま踏み込む夜は、いつも少しだけ息苦しい。蛍光灯の白さばかりやけに鮮明で、見えているはずのものがまだ自分の言葉に落ちてこない。'},
+    {speaker:'',text:minoriRejectedTruth() ? 'ミノリの棚の札だけが、どうしても意味不明な文字列に見えてしまう。切ってはいけない読みを切った時の痛みは、こういう形で返ってくる。' : '今年のものだけはわかる。自分たちもまた、返せなかったものをここに増やしていた。知らない先輩の話だと思っていたものが、自分の手の形をして目の前へ戻ってくる。その感じだけでも、十分にぞっとする。'}
+  ],next:'ch09_intervene'},
+  ch09_intervene:{type:'choice',label:'第九章 17番の先に入る夜',background:'room',build(game){
+    const strong = game.state.clues.linked.length;
+    const weak = (game.state.clues.weak || []).length;
+    let opts;
+    if(strong === 0){
+      opts = [
+        {text:'自分の棚だけを見る',effects:{ACT_LOOK:1},next:'ch09_after_room'},
+        {text:'今日は戻る',effects:{},next:'ch09_after_room'}
+      ];
+    } else if(strong === 1 && weak >= 1){
+      opts = [
+        {text:'今夜、ここから一つ返しに行く',effects:{ACT_RETURN:1},next:'ch09_after_room'},
+        {text:'自分の棚だけを見る',effects:{ACT_LOOK:1},next:'ch09_after_room'},
+        {text:'今日は戻る',effects:{},next:'ch09_after_room'}
+      ];
+    } else {
+      opts = [
+        {text:'今夜、ここから一つ返しに行く',effects:{ACT_RETURN:1, CLUE_RETURN_CHAIN:1},next:'ch09_after_room'},
+        {text:'自分の棚だけを見る',effects:{ACT_LOOK:1},next:'ch09_after_room'},
+        {text:'今日は戻る',effects:{},next:'ch09_after_room'}
+      ];
+      if(game.state.flags.REL_TORU >= 2) opts.unshift({text:'トオルの「言うのが遅れただけだ」を受けて、今夜返しに行く',effects:{ACT_RETURN:1, CLUE_RETURN_CHAIN:1},next:'ch09_after_room'});
+    }
+    return {text:'ここで、どう動く。', sub: strong === 0 ? 'まだ、返しに行く理由そのものが薄い。' : (strong === 1 && weak >= 1 ? '返しには行ける。ただし、連鎖を起こすには理解がまだ足りない。' : '理解がつながったぶん、返却は次の返却を呼びうる。'), options:opts.slice(0,4)};
+  }},
+
+  ch09_after_room:{type:'talk',label:'第九章 棚の読み直し',background:'room',onEnter(game){
+    applyRenBoardEvidenceOnce('ch09_shelf');
+    applyToruBoardEvidenceOnce('ch09_shelf');
+  },build(game){
+    const lines=[{speaker:'',text:'準備室の棚を見たあとで残るのは、物そのものより読みの方だ。レンについて、まだ一つだけきれいすぎる理解が残っている。笑いの裏へ触れたはずなのに、まだ優しい言葉で片づけたくなる自分がいる。'}];
+    const next = renBoard().phase==='refuted' ? (toruBoard().phase==='refuted' ? 'ch10_intro' : 'ch09_toru_refute_intro') : 'ch09_ren_refute_intro';
+    return {lines, next};
+  }},
+  ch09_ren_refute_intro:{type:'talk',label:'第九章 レンの棄却',background:'room',build(game){
+    const vm = renClaimsView().filter(v=>v.state!=='rejected');
+    const lines = [{speaker:'',text:'レンについて、まだ一つ甘い読みが残っている。正解を選ぶのではない。今の時点で、退けるべき理解を自分で切る。ここで甘さを残すと、第十章の言葉も同じだけ甘くなる。'}];
+    lines.push({speaker:'',text:vm.map(v=>`・${v.label} / 確信 ${v.confidence} / 揺らぎ ${v.noise}`).join('\n')});
+    return {lines, next:'ch09_ren_refute'};
+  }},
+  ch09_ren_refute:{type:'choice',label:'第九章 レンの棄却',background:'room',build(game){
+    const board = renBoard();
+    const opts = board.activeClaimIds.map(id=>({text:`この読みを退ける: ${board.claims[id].label}`, onPick:()=>rejectRenClaim(id), next:'ch09_ren_refute_result'}));
+    return {text:'退けるべき理解を一つ選ぶ。善意という耳ざわりの良い読みを残すなら、その代償は第十章で返ってくる。', sub:'ここで切った仮説は、手帳に赤線で残る。', cardMode:true, options:opts};
+  }},
+  ch09_ren_refute_result:{type:'talk',label:'第九章 レンの棄却結果',background:'room',build(game){
+    const board = renBoard();
+    const killed = board.rejectedClaimIds[board.rejectedClaimIds.length-1];
+    let t='一つの読みを、自分の手で切った。レンの笑いは軽いだけではない。問題は、その先に何を残すかだ。';
+    if(killed==='easygoing_only') t='軽い性格なだけという浅い読みを切ったことで、レンの冗談は急に不穏になる。ここから先で残るのは、優しさか、防衛か、そのどちらかだ。';
+    if(killed==='protective_kindness') t='善意という耳ざわりの良い読みを切ったことで、冗談は急に冷える。場を守っていたのではなく、沈黙へ入る前に話を終わらせていた可能性が前へ出る。';
+    if(killed==='fear_of_silence') t='もっとも深い読みを自分で切ってしまった。これでこの先、レンの笑いは少しだけきれいに見えすぎる。第十章でその代償を払うことになる。';
+    return {lines:[{speaker:'',text:t}], next: toruBoard().phase==='refuted' ? 'ch10_intro' : 'ch09_toru_refute_intro'};
+  }},
+
+  ch10_intro:{type:'choice',label:'第十章 現実で返しに行く',background:'ending',onEnter(game){ game.state.airHeat = 2; },build(game){
+    const opts = [];
+    if(canReturnTarget('minori')) opts.push({text:'ミノリの渡せなかった包み',next:'ch10_minori_prep'});
+    if(canReturnTarget('ren')) opts.push({text:'レンの冗談で流した謝罪',next:'ch10_ren_prep'});
+    if(canReturnTarget('toru')) opts.push({text:'トオルの送らなかったメッセージ',next:'ch10_toru_prep'});
+    if(!opts.length) opts.push({text:'今日は戻るしかない', next:'ending_fail'});
+    return {text:'準備室で見つけた今年の棚を、現実で返しに行く。ここから先は、謎を知るだけでは足りない。誰の未返却へ、先に手を伸ばすかを決める。',sub:'相手を選んだあとに、もう一手の判断がある。理解が浅い相手は、ここではまだ選べない。',cardMode:true,options:opts};
+  }},
+
+  ch10_minori_prep:{type:'choice',label:'第十章 ミノリへ向かう前',background:'ending',build(game){
+    return {text:'ミノリに近づく前に、まず場の温度をどう作るか決める。',sub:heatCue('minori'),options:[
+      {text:'雑談を少し挟む', onPick:()=>setAirMode('minori','smalltalk'), next:'ch10_minori'},
+      {text:'最初から核心へ触れる', onPick:()=>setAirMode('minori','core'), next:'ch10_minori'},
+      {text:'沈黙を置いて待つ', onPick:()=>setAirMode('minori','silence'), next:'ch10_minori'}
+    ]};
+  }},
+  ch10_ren_prep:{type:'choice',label:'第十章 レンへ向かう前',background:'ending',build(game){
+    return {text:'レンに向かう前に、空気をどう作るか決める。',sub:heatCue('ren'),options:[
+      {text:'先に雑談へ逃がす', onPick:()=>setAirMode('ren','smalltalk'), next:'ch10_ren'},
+      {text:'半分だけ受けてから止める', onPick:()=>setAirMode('ren','core'), next:'ch10_ren'},
+      {text:'最初から切る', onPick:()=>setAirMode('ren','silence'), next:'ch10_ren'}
+    ]};
+  }},
+  ch10_toru_prep:{type:'choice',label:'第十章 トオルへ向かう前',background:'ending',build(game){
+    return {text:'トオルに向かう前に、言葉を置く速度を決める。',sub:heatCue('toru'),options:[
+      {text:'別の話題から入る', onPick:()=>setAirMode('toru','smalltalk'), next:'ch10_toru'},
+      {text:'未送信の文へすぐ触れる', onPick:()=>setAirMode('toru','core'), next:'ch10_toru'},
+      {text:'沈黙のまま待つ', onPick:()=>setAirMode('toru','silence'), next:'ch10_toru'}
+    ]};
+  }},
+  ch10_minori:{type:'choice',label:'第十章 ミノリに返す',background:'ending',build(game){
+    return {text:`${proofLeadText('minori')}
+
+${airMoveText('minori')}
+
+ミノリは包みを机の端へ置き、もう今日じゃなくていいよねと言いかける。
+
+${heatCue('minori')}`,options:[
+      {text:'やわらかく、今じゃなくていいを止める',getNext:()=> resolveReturn('minori','soft_stop') ? 'ch10_after_first_success' : 'ch10_after_first_fail'},
+      {text:'強く、今じゃなくていいを止める',getNext:()=> resolveReturn('minori','hard_stop') ? 'ch10_after_first_success' : 'ch10_after_first_fail'},
+      {text:'そのまま肯定する',getNext:()=> resolveReturn('minori','agree_delay') ? 'ch10_after_first_success' : 'ch10_after_first_fail'}
+    ]};
+  }},
+  ch10_ren:{type:'choice',label:'第十章 レンに返す',background:'ending',build(game){
+    return {text:`${proofLeadText('ren')}
+
+${airMoveText('ren')}
+
+レンは謝る空気になった瞬間、先に冗談へ逃がそうとする。
+
+${heatCue('ren')}`,options:[
+      {text:'笑いに軽く乗る',getNext:()=> resolveReturn('ren','join_joke') ? 'ch10_after_first_success' : 'ch10_after_first_fail'},
+      {text:'今回は笑わず止める',getNext:()=> resolveReturn('ren','refuse_joke') ? 'ch10_after_first_success' : 'ch10_after_first_fail'},
+      {text:'強く遮る',getNext:()=> resolveReturn('ren','cut_hard') ? 'ch10_after_first_success' : 'ch10_after_first_fail'}
+    ]};
+  }},
+  ch10_toru:{type:'choice',label:'第十章 トオルに返す',background:'ending',build(game){
+    return {text:`${proofLeadText('toru')}
+
+${airMoveText('toru')}
+
+トオルは、まだちゃんと書けていないと言って、言葉を完成待ちにしようとする。
+
+${heatCue('toru')}`,options:[
+      {text:'完成を待とうと言う',getNext:()=> resolveReturn('toru','wait_complete') ? 'ch10_after_first_success' : 'ch10_after_first_fail'},
+      {text:'未完成でも渡せると言う',getNext:()=> resolveReturn('toru','allow_imperfect') ? 'ch10_after_first_success' : 'ch10_after_first_fail'},
+      {text:'今すぐ送れと急かす',getNext:()=> resolveReturn('toru','push_now') ? 'ch10_after_first_success' : 'ch10_after_first_fail'}
+    ]};
+  }},
+  ch10_after_first_fail:{type:'talk',label:'第十章 返却の失敗',background:'ending',build(game){
+    return {lines:[{speaker:'',text:returnAttemptText('fail')}], next:'ending_fail'};
+  }},
+  ch10_after_first_success:{type:'choice',label:'第十章 連鎖の有無',background:'ending',build(game){
+    const canChain = !!game.state.flags.CLUE_RETURN_CHAIN;
+    const history = app.state.returnHistory || [];
+    const firstText = returnAttemptText('success');
+    if(!canChain){
+            return {text:firstText + '\n\n一つは返せた。ここで終えることもできる。でも、返却はときどき次の返却を呼ぶ。どうする。', options:[{text:'エンディングへ', next:'ending_normal'}]};
+    }
+    const remaining = [
+      {id:'minori', text:'ミノリの渡せなかった包み', next:'ch10_second_minori_prep'},
+      {id:'ren', text:'レンの冗談で流した謝罪', next:'ch10_second_ren_prep'},
+      {id:'toru', text:'トオルの送らなかったメッセージ', next:'ch10_second_toru_prep'}
+    ].filter(v => !history.includes(v.id));
+    const opts = remaining.map(v => ({text:v.text, next:v.next}));
+    opts.push({text:'今日はここで止める', next:'ending_normal'});
+    return {text:firstText + '\n\n一つが返ると、もう一つも動きかける。もう一度だけ、誰に手を伸ばすか選べる。', options:opts};
+  }},
+
+  ch10_second_minori_prep:{type:'choice',label:'第十章 二人目 ミノリへ向かう前',background:'ending',build(game){
+    return {text:'もう一人へ向かう前に、場の温度をどう作るか決める。',sub:heatCue('minori'),options:[
+      {text:'雑談を少し挟む', onPick:()=>setAirMode('minori','smalltalk'), next:'ch10_second_minori'},
+      {text:'最初から核心へ触れる', onPick:()=>setAirMode('minori','core'), next:'ch10_second_minori'},
+      {text:'沈黙を置いて待つ', onPick:()=>setAirMode('minori','silence'), next:'ch10_second_minori'}
+    ]};
+  }},
+  ch10_second_ren_prep:{type:'choice',label:'第十章 二人目 レンへ向かう前',background:'ending',build(game){
+    return {text:'もう一人へ向かう前に、空気をどう作るか決める。',sub:heatCue('ren'),options:[
+      {text:'先に雑談へ逃がす', onPick:()=>setAirMode('ren','smalltalk'), next:'ch10_second_ren'},
+      {text:'半分だけ受けてから止める', onPick:()=>setAirMode('ren','core'), next:'ch10_second_ren'},
+      {text:'最初から切る', onPick:()=>setAirMode('ren','silence'), next:'ch10_second_ren'}
+    ]};
+  }},
+  ch10_second_toru_prep:{type:'choice',label:'第十章 二人目 トオルへ向かう前',background:'ending',build(game){
+    return {text:'もう一人へ向かう前に、言葉を置く速度を決める。',sub:heatCue('toru'),options:[
+      {text:'別の話題から入る', onPick:()=>setAirMode('toru','smalltalk'), next:'ch10_second_toru'},
+      {text:'未送信の文へすぐ触れる', onPick:()=>setAirMode('toru','core'), next:'ch10_second_toru'},
+      {text:'沈黙のまま待つ', onPick:()=>setAirMode('toru','silence'), next:'ch10_second_toru'}
+    ]};
+  }},
+  ch10_second_minori:{type:'choice',label:'第十章 二人目 ミノリ',background:'ending',build(game){
+    return {text:`${proofLeadText('minori')}
+
+${airMoveText('minori')}
+
+ミノリは包みをきれいな言い方で先延ばしにしようとする。
+
+${heatCue('minori')}`,options:[
+      {text:'やわらかく、今じゃなくていいを止める',getNext:()=> resolveReturn('minori','soft_stop') ? 'ch10_after_second_success' : 'ch10_after_second_fail'},
+      {text:'強く、今じゃなくていいを止める',getNext:()=> resolveReturn('minori','hard_stop') ? 'ch10_after_second_success' : 'ch10_after_second_fail'},
+      {text:'そのまま肯定する',getNext:()=> resolveReturn('minori','agree_delay') ? 'ch10_after_second_success' : 'ch10_after_second_fail'}
+    ]};
+  }},
+  ch10_second_ren:{type:'choice',label:'第十章 二人目 レン',background:'ending',build(game){
+    return {text:`${proofLeadText('ren')}
+
+${airMoveText('ren')}
+
+レンはまた冗談に逃げようとする。
+
+${heatCue('ren')}`,options:[
+      {text:'笑いに軽く乗る',getNext:()=> resolveReturn('ren','join_joke') ? 'ch10_after_second_success' : 'ch10_after_second_fail'},
+      {text:'今回は笑わず止める',getNext:()=> resolveReturn('ren','refuse_joke') ? 'ch10_after_second_success' : 'ch10_after_second_fail'},
+      {text:'強く遮る',getNext:()=> resolveReturn('ren','cut_hard') ? 'ch10_after_second_success' : 'ch10_after_second_fail'}
+    ]};
+  }},
+  ch10_second_toru:{type:'choice',label:'第十章 二人目 トオル',background:'ending',build(game){
+    return {text:`${proofLeadText('toru')}
+
+${airMoveText('toru')}
+
+トオルは、ちゃんとした形になるまで保留に戻そうとする。
+
+${heatCue('toru')}`,options:[
+      {text:'完成を待とうと言う',getNext:()=> resolveReturn('toru','wait_complete') ? 'ch10_after_second_success' : 'ch10_after_second_fail'},
+      {text:'未完成でも渡せると言う',getNext:()=> resolveReturn('toru','allow_imperfect') ? 'ch10_after_second_success' : 'ch10_after_second_fail'},
+      {text:'今すぐ送れと急かす',getNext:()=> resolveReturn('toru','push_now') ? 'ch10_after_second_success' : 'ch10_after_second_fail'}
+    ]};
+  }},
+  ch10_after_second_fail:{type:'talk',label:'第十章 二人目の失敗',background:'ending',build(game){
+    return {lines:[{speaker:'',text:returnAttemptText('fail')}], next:'ending_check'};
+  }},
+  ch10_after_second_success:{type:'talk',label:'第十章 二人目の成功',background:'ending',build(game){
+    const remain = remainingReturnTargets();
+    const next = remain.length ? 'ch10_third_prompt' : 'ending_check';
+    return {lines:[{speaker:'',text:returnAttemptText('success')}], next};
+  }},
+  ch10_third_prompt:{type:'choice',label:'第十章 三人目へ',background:'ending',build(game){
+    const remain = remainingReturnTargets();
+    const opts = remain.map(t => ({text:`${targetLabel(t)}へ向かう`, onPick:()=>{app.state.pendingTarget=t;}, next:'ch10_followup_prep'}));
+    opts.push({text:'ここで連鎖を止める', next:'ending_check'});
+    return {text:'もう二人、返していった。残る一人にまで手を伸ばすなら、ここが最後の機会になる。', options:opts};
+  }},
+  ch10_followup_prep:{type:'choice',label:'第十章 続く返却の前',background:'ending',build(game){
+    const target = game.state.pendingTarget;
+    const ord = followupOrdinalLabel();
+    const prepText = target==='minori' ? '場の温度をどう作るか決める。' : target==='ren' ? '空気をどう作るか決める。' : '言葉を置く速度を決める。';
+    const optionsMap = {
+      minori:[
+        {text:'雑談を少し挟む', onPick:()=>setAirMode('minori','smalltalk'), next:'ch10_followup_target'},
+        {text:'最初から核心へ触れる', onPick:()=>setAirMode('minori','core'), next:'ch10_followup_target'},
+        {text:'沈黙を置いて待つ', onPick:()=>setAirMode('minori','silence'), next:'ch10_followup_target'}
+      ],
+      ren:[
+        {text:'先に雑談へ逃がす', onPick:()=>setAirMode('ren','smalltalk'), next:'ch10_followup_target'},
+        {text:'半分だけ受けてから止める', onPick:()=>setAirMode('ren','core'), next:'ch10_followup_target'},
+        {text:'最初から切る', onPick:()=>setAirMode('ren','silence'), next:'ch10_followup_target'}
+      ],
+      toru:[
+        {text:'別の話題から入る', onPick:()=>setAirMode('toru','smalltalk'), next:'ch10_followup_target'},
+        {text:'未送信の文へすぐ触れる', onPick:()=>setAirMode('toru','core'), next:'ch10_followup_target'},
+        {text:'沈黙のまま待つ', onPick:()=>setAirMode('toru','silence'), next:'ch10_followup_target'}
+      ]
+    };
+    return {text:`第十章 ${ord} ${targetLabel(target)}へ向かう前。${prepText}`, sub:heatCue(target), options: optionsMap[target] || []};
+  }},
+  ch10_followup_target:{type:'choice',label:'第十章 続く立証',background:'ending',build(game){
+    const target = game.state.pendingTarget;
+    const ord = followupOrdinalLabel();
+    const base = `${proofLeadText(target)}
+
+${airMoveText(target)}
+
+` + (target==='minori' ? 'ミノリは包みをきれいな言い方で先延ばしにしようとする。' : target==='ren' ? 'レンはまた冗談に逃げようとする。' : 'トオルは、ちゃんとした形になるまで保留に戻そうとする。') + `
+
+${heatCue(target)}`;
+    const nextOk = 'ch10_followup_success';
+    const nextNg = 'ch10_followup_fail';
+    const optionsMap = {
+      minori:[
+        {text:'やわらかく、今じゃなくていいを止める', getNext:()=> resolveReturn('minori','soft_stop') ? nextOk : nextNg},
+        {text:'強く、今じゃなくていいを止める', getNext:()=> resolveReturn('minori','hard_stop') ? nextOk : nextNg},
+        {text:'そのまま肯定する', getNext:()=> resolveReturn('minori','agree_delay') ? nextOk : nextNg}
+      ],
+      ren:[
+        {text:'笑いに軽く乗る', getNext:()=> resolveReturn('ren','join_joke') ? nextOk : nextNg},
+        {text:'今回は笑わず止める', getNext:()=> resolveReturn('ren','refuse_joke') ? nextOk : nextNg},
+        {text:'強く遮る', getNext:()=> resolveReturn('ren','cut_hard') ? nextOk : nextNg}
+      ],
+      toru:[
+        {text:'完成を待とうと言う', getNext:()=> resolveReturn('toru','wait_complete') ? nextOk : nextNg},
+        {text:'未完成でも渡せると言う', getNext:()=> resolveReturn('toru','allow_imperfect') ? nextOk : nextNg},
+        {text:'今すぐ送れと急かす', getNext:()=> resolveReturn('toru','push_now') ? nextOk : nextNg}
+      ]
+    };
+    return {text: base, options: optionsMap[target] || []};
+  }},
+  ch10_followup_fail:{type:'talk',label:'第十章 続く失敗',background:'ending',build(game){
+    return {lines:[{speaker:'', text:returnAttemptText('fail')}], next:'ending_check'};
+  }},
+  ch10_followup_success:{type:'talk',label:'第十章 続く成功',background:'ending',build(game){
+    return {lines:[{speaker:'', text:returnAttemptText('success')}], next:'ending_check'};
+  }},
+  ending_check:{type:'talk',label:'第十章 返却の連鎖',background:'ending',build(game){
+    const f = game.state.flags;
+    const chainDepth = (game.state.chainState||[]).filter(v=>!String(v).startsWith('applied:')).length;
+    const trueEnd = f.RETURN_TARGETS >= 3 && game.state.clues.linked.length >= 2 && f.CLUE_NOTE_SYMBOL && f.CLUE_OLD_EMA && f.CLUE_RETURN_CHAIN && chainDepth >= 2;
+    const txt = trueEnd ? '返却は、たしかに連鎖した。ミノリの包みも、レンの冗談も、トオルの未送信も、別々の失敗ではなかったのだと、この部屋がようやく認める。準備室の棚は静かに組み替わり、空いた場所には日焼け跡のような重みだけが残る。もう誰かを怪異のせいにはできない。そのかわり、ようやく人の手で終わらせられる形になった。' : '返却は起きた。けれど、まだすべてが一本へ束ねられたわけではない。準備室の棚はいくつか空いたのに、全体の並びにはまだ少しだけ歪みが残る。救えたものと、まだ棚に残ったもの。その差が、最後まで小さな影になって部屋の隅に残っている。';
+    return {lines:[{speaker:'',text:txt}], next:trueEnd ? 'ending_true' : 'ending_normal'};
+  }},
+  ending_fail:{type:'talk',label:'未達エンド',background:'ending',build(game){
+    game.state.finalEnding = 'fail';
+    return {lines:[
+      {speaker:'',text:'結局、何も返せなかった。月曜の朝になれば、出席は取られ、提出物は回収され、黒板はいつもの白さで埋まっていく。学校は、こちらがつまずいても平気な顔で前へ進む。廊下の足音も、先生の声も、そういう日の方が妙に明るく聞こえる。'},
+      {speaker:'',text:'けれど17番の先にある部屋だけは、そのままだ。誰も触れなかった棚に、また薄く埃が積もる。包みも、冗談も、未送信も、標本みたいにきれいなまま置かれている。きれいなまま残ることが、こんなに残酷だとは入る前には思わなかった。'},
+      {speaker:'',text:'変わらないことは、思ったより静かだ。静かすぎて、ときどき息が詰まる。六角レンチたちは、まだこの部屋の外に立てていない。'}
+    ], next:'final_log'};
+  }},
+  ending_normal:{type:'talk',label:'通常エンド',background:'ending',build(game){
+    game.state.finalEnding = 'normal';
+    return {lines:[
+      {speaker:'',text:'一つ、あるいは二つの棚が空いた。そのぶんだけ、隣に残ったものの輪郭が濃くなる。軽くなったはずの空気の中で、まだ動かない時間だけが、かえってよく見えた。返せたものの数より、まだ返せないものの沈黙の方が、この夜は耳に残る。'},
+      {speaker:'',text:'放課後の教室に戻ると、机の位置も、カーテンの揺れも、昨日までと何も変わらない。なのに、返せたものがあるという事実だけが、小さく現実の重さを持っている。消しゴムのかすやプリントの端までいつも通りなのに、そこへ混ざる自分の呼吸だけ少し違う。'},
+      {speaker:'',text:'全部ではない。それでもゼロではない。この部屋はまだ次の名前を待っているけれど、もうただ飲み込むだけの場所ではなくなっていた。'}
+    ], next:'final_log'};
+  }},
+  ending_true:{type:'talk',label:'到達エンド',background:'ending',build(game){
+    game.state.finalEnding = 'true';
+    return {lines:[
+      {speaker:'',text:'三つの保留が、ようやく動いた。宛名のない紙も、喉元で止まった一音も、送られなかった空白も、もう標本の形では残っていない。誰かの未返却ではなく、誰かが返したあとの静けさへ変わっている。いちばん大きく変わったのは部屋ではなく、そこへ立つ六角レンチたちの目つきの方かもしれない。'},
+      {speaker:'',text:'棚には、薄い日焼け跡だけが残った。長くそこにあったものほど、なくなったあともしばらく輪郭を離さない。教室へ戻っても、その跡だけはしばらく胸の内側に残る。卒業アルバムの白い余白みたいに、もう埋まらないのに、そこにあったことだけははっきりしている。'},
+      {speaker:'',text:'17番の先にある部屋。ここは何かを隠しておくための場所ではなくなった。通り過ぎたものの重みだけを残して、前へ出していく場所になった。秘密を抱える部屋ではなく、秘密が終わったあとにだけ静かになる部屋へ変わった。'},
+      {speaker:'',text:'六角レンチは、鍵を閉める前に一度だけ振り返る。もう誰かのための祠ではない。ここは、返せなかったものが返るまで待っていた部屋だった。'}
+    ], next:'final_log'};
+  }},
+  final_log:{type:'talk',label:'最終記録',background:'ending',build(game){
+    const txt = `観測を終える。
+
+最初は、ただ鍵を探していただけだった。
+17番だけがない。その感じの悪い欠け方を追っていくうちに、鍵箱の裏紙、放送にまぎれた一文、去年から残った絵馬、宛名のない包み、送れなかったメッセージが、ぜんぶ同じ部屋を指し始めた。授業中に窓の外を見ている時も、帰り道でイヤホンを片方だけ外した時も、その部屋のことだけは妙にはっきり残っていた。
+
+彼らが守っていたのは、思い出ではなかった。
+変わってしまったあとを引き受けること、その怖さだった。
+定義を避け、対話を切り、保存に逃げる。
+形は違っていても、どれも同じ保留だった。高校生の時間は短いくせに、その短さの中で決まってしまうことだけは妙に重い。だからみんな、少しずつ違う形で立ち止まっていた。
+
+ここに残した記録は、もう答え合わせのためには使えない。
+真実が定まった瞬間、それは謎ではなく、ただ誰かが確かに通った跡になる。
+手帳を閉じる。
+残るのは、整理された記録ではなく、もう見過ごせない感触だけだ。明日から同じ教室に座っても、もう前と同じ顔ではいられない。その程度には、この部屋は現実へ触ってきた。`;
+    game.state.finalLogText = txt;
+    return {lines:[{speaker:'', text:txt}], next:'final_question'};
+  }},
+  final_question:{type:'talk',label:'最後の一行',background:'ending',lines:[
+    {speaker:'',text:'まだ手元に置いたままのものは、ありますか。\n\n返す相手がいるものでも、いないものでも。'}
+  ],next:'title_return'},
+  title_return:{type:'talk',label:'完了',background:'ending',lines:[{speaker:'',text:'タイトルへ戻る。'}],next:null}
+};
+
+
+function initDynamicScenes(){
+  scenes.ch01_hypothesis = buildHypothesisScene('ch01','第一章 17番の不在の意味','classroom','今見えている違和感を、どう解釈する。','ch01_result_logic');
+  scenes.ch01_evidence = buildHypothesisEvidenceScene('ch01','第一章 根拠の提示','classroom','ch01_result_logic');
+  scenes.ch02_hypothesis = buildHypothesisScene('ch02','第二章 返らない落とし物の意味','board','戻った物と、戻らない物。その違いをどう読む。','ch02_result_logic');
+  scenes.ch02_evidence = buildHypothesisEvidenceScene('ch02','第二章 根拠の提示','board','ch02_result_logic');
+  scenes.ch03_hypothesis = buildHypothesisScene('ch03','第三章 通路の異変の意味','corridor','足跡と扉の違和感を、どう読む。','ch03_result_logic');
+  scenes.ch03_evidence = buildHypothesisEvidenceScene('ch03','第三章 根拠の提示','corridor','ch03_result_logic');
+  scenes.ch04_hypothesis = buildHypothesisScene('ch04','第四章 放送に混ざった一文の意味','broadcast','原稿にない一文を、どう解釈する。','ch04_result_logic');
+  scenes.ch04_evidence = buildHypothesisEvidenceScene('ch04','第四章 根拠の提示','broadcast','ch04_result_logic');
+  scenes.ch05_hypothesis = buildHypothesisScene('ch05','第五章 ミノリの包みの意味','winter','ミノリの包みについて、今の読みを一つ置く。','ch05_result_logic');
+  scenes.ch05_evidence = buildHypothesisEvidenceScene('ch05','第五章 根拠の提示','winter','ch05_result_logic');
+  scenes.ch06_hypothesis = buildHypothesisScene('ch06','第六章 去年の痕跡の意味','shrine','去年から続くものを、どう読む。','ch06_result_logic');
+  scenes.ch06_evidence = buildHypothesisEvidenceScene('ch06','第六章 根拠の提示','shrine','ch06_result_logic');
+  scenes.ch07_hypothesis = buildHypothesisScene('ch07','第七章 宛名のない包みの意味','valentine','いま見えている未返却を、どう読む。','ch07_result_logic');
+  scenes.ch07_evidence = buildHypothesisEvidenceScene('ch07','第七章 根拠の提示','valentine','ch07_result_logic');
+}
+
+initDynamicScenes();
+
+showTitle();
+
+</script>
+</body>
+</html>
