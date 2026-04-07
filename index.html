@@ -31,7 +31,8 @@ body{touch-action:manipulation}
 .spot::after{content:'';position:absolute;inset:-6px;border:1px solid rgba(255,255,255,.12);border-radius:inherit;animation:pulse 1.8s infinite}
 @keyframes pulse{0%{transform:scale(.96);opacity:.6}70%{transform:scale(1.08);opacity:0}100%{opacity:0}}
 #spotHelp{position:absolute;left:14px;right:14px;bottom:14px;padding:10px 12px;border-radius:14px;background:rgba(9,12,18,.58);border:1px solid rgba(255,255,255,.08);font-size:12px;color:var(--sub);z-index:3}
-#textbox{position:relative;flex:1;min-height:0;padding:16px calc(16px + var(--safe-right)) calc(112px + var(--safe-bottom)) calc(16px + var(--safe-left));background:var(--panel);display:flex;flex-direction:column;justify-content:space-between;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#textbox{position:relative;flex:1;min-height:0;padding:16px calc(16px + var(--safe-right)) calc(156px + var(--safe-bottom)) calc(16px + var(--safe-left));background:var(--panel);display:flex;flex-direction:column;justify-content:space-between;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#textbox::after{content:'';position:fixed;left:0;right:0;bottom:calc(54px + var(--safe-bottom));height:92px;background:linear-gradient(180deg,rgba(9,12,18,0) 0%,rgba(9,12,18,.78) 42%,rgba(9,12,18,.96) 72%,rgba(9,12,18,1) 100%);pointer-events:none;z-index:23}
 #speaker{font-size:15px;font-weight:700;color:#cfe2ff;min-height:22px;margin-bottom:8px}
 #text{font-size:19px;line-height:1.78;white-space:pre-wrap;min-height:160px}
 #sub{font-size:15px;color:var(--sub);min-height:22px;margin-top:10px}
@@ -1333,7 +1334,7 @@ function showModal(type){
   }
 }
 
-document.getElementById('newGameBtn').onclick = () => { app.state = defaultState(); hideTitle(); enterScene('ch01_intro'); };
+document.getElementById('newGameBtn').onclick = () => { app.state = defaultState(); hideTitle(); enterScene('ch00_intro_1'); };
 document.getElementById('loadFromTitleBtn').onclick = () => showModal('load');
 document.getElementById('saveBtn').onclick = () => showModal('save');
 document.getElementById('loadBtn').onclick = () => showModal('load');
@@ -1394,6 +1395,15 @@ function hydrateState(saved){
 }
 
 const scenes = {
+  ch00_intro_1:{type:'talk',label:'導入',background:'classroom',lines:[
+    {speaker:'',text:'あなたは、この高校に通う生徒、六角レンチ。\n\n文化祭が終わったばかりの校舎には、まだ紙の輪とテープの跡が残っている。片づけ前の教室は、いつもの教室に戻りかけているのに、まだ少しだけ祭りの顔をしていた。そんな中で、六角レンチは鍵箱の前で足を止める。17番だけが、ない。'}
+  ],next:'ch00_intro_2'},
+  ch00_intro_2:{type:'talk',label:'導入',background:'corridor',lines:[
+    {speaker:'',text:'それだけなら、ただの紛失で済むはずだった。\n\nけれど、この学校では去年の文化祭のあとから、返したはずの物が戻ってきたり、放送に誰も書いていない一文が混ざったりする。忘れ物というには静かすぎて、怪談というには生活に近すぎる。誰にも返せなかった何かだけが、校舎のどこかに居残っている。'}
+  ],next:'ch00_intro_3'},
+  ch00_intro_3:{type:'talk',label:'導入',background:'broadcast',lines:[
+    {speaker:'',text:'これから六角レンチは、光る場所を調べ、消えかけた痕跡を拾い、誰かが返せなかったものの続きをたどっていく。\n\n早く見れば、まだ手がかりは手がかりの顔をしている。遅れれば、残るのは消し跡や言い淀みだけだ。はじまりは小さい。鍵箱の17番がない。ただそれだけのはずの違和感から、話は静かにずれていく。'}
+  ],next:'ch01_intro'},
   ch01_intro:{type:'talk',label:'第一章 文化祭後片づけ',background:'classroom',lines:[
     {speaker:'',text:'文化祭が終わったあとの教室は、まだ少しだけ浮かれている。黒板のすみに残るイラスト、机の脚にからんだ紙テープ、教卓に積まれた出欠簿と回収物。その片づけの最中、17番の鍵だけが見当たらない。落とし物タグには、拾得場所だけが空白のまま残っている。窓際には夕方の光が斜めに差していて、いつもの教室なのに、今日は一か所だけ話の続きが抜け落ちているみたいだった。'},
     {speaker:'ナナオ',text:'17番だけ、記録は帰ってる。でも鍵は帰ってない'},
