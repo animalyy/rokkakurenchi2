@@ -21,8 +21,8 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0c1118;colo
 body{touch-action:manipulation}
 #app{position:fixed;inset:0;display:flex;flex-direction:column}
 #topbar{position:absolute;top:calc(8px + var(--safe-top));left:calc(8px + var(--safe-left));right:calc(8px + var(--safe-right));z-index:20;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
-.chip{pointer-events:auto;padding:8px 10px;border-radius:12px;background:rgba(9,12,18,.58);border:1px solid var(--line);backdrop-filter:blur(8px);font-size:12px;color:var(--sub)}
-#sceneWrap{position:relative;flex:0 0 68%;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.08)}
+.chip{pointer-events:auto;padding:10px 12px;border-radius:14px;background:rgba(9,12,18,.58);border:1px solid var(--line);backdrop-filter:blur(8px);font-size:14px;color:var(--sub)}
+#sceneWrap{position:relative;flex:0 0 58%;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.08)}
 #bg{position:absolute;inset:0}
 #bgOverlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.26) 60%,rgba(0,0,0,.55) 100%)}
 #spotLayer{position:absolute;inset:0;z-index:2}
@@ -31,16 +31,16 @@ body{touch-action:manipulation}
 .spot::after{content:'';position:absolute;inset:-6px;border:1px solid rgba(255,255,255,.12);border-radius:inherit;animation:pulse 1.8s infinite}
 @keyframes pulse{0%{transform:scale(.96);opacity:.6}70%{transform:scale(1.08);opacity:0}100%{opacity:0}}
 #spotHelp{position:absolute;left:14px;right:14px;bottom:14px;padding:10px 12px;border-radius:14px;background:rgba(9,12,18,.58);border:1px solid rgba(255,255,255,.08);font-size:12px;color:var(--sub);z-index:3}
-#textbox{position:relative;flex:1;padding:14px calc(14px + var(--safe-right)) calc(14px + var(--safe-bottom)) calc(14px + var(--safe-left));background:var(--panel);display:flex;flex-direction:column;justify-content:space-between}
-#speaker{font-size:13px;font-weight:700;color:#cfe2ff;min-height:20px;margin-bottom:6px}
-#text{font-size:16px;line-height:1.72;white-space:pre-wrap;min-height:132px}
-#sub{font-size:12px;color:var(--sub);min-height:18px;margin-top:8px}
+#textbox{position:relative;flex:1;min-height:0;padding:16px calc(16px + var(--safe-right)) calc(92px + var(--safe-bottom)) calc(16px + var(--safe-left));background:var(--panel);display:flex;flex-direction:column;justify-content:space-between;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#speaker{font-size:15px;font-weight:700;color:#cfe2ff;min-height:22px;margin-bottom:8px}
+#text{font-size:19px;line-height:1.78;white-space:pre-wrap;min-height:160px}
+#sub{font-size:15px;color:var(--sub);min-height:22px;margin-top:10px}
 #choices{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-button.choice,button.small,button.main{width:100%;border:none;border-radius:14px;background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:13px 14px;text-align:left;font-size:15px}
+button.choice,button.small,button.main{width:100%;border:none;border-radius:16px;background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:15px 16px;text-align:left;font-size:17px}
 button.choice:active,button.small:active,button.main:active{background:rgba(207,226,255,.16)}
-#footerBtns{display:flex;gap:8px;margin-top:10px}
-button.small{font-size:13px;padding:10px 12px;text-align:center}
-#advance{position:absolute;right:16px;bottom:calc(12px + var(--safe-bottom));font-size:12px;color:var(--sub)}
+#footerBtns{display:flex;gap:8px;margin-top:14px;position:sticky;bottom:calc(8px + var(--safe-bottom));padding-top:12px;background:linear-gradient(180deg,rgba(9,12,18,0),rgba(9,12,18,.92) 24%,rgba(9,12,18,.98) 100%);z-index:6}
+button.small{font-size:15px;padding:12px 12px;text-align:center}
+#advance{position:sticky;align-self:flex-end;right:auto;bottom:calc(68px + var(--safe-bottom));margin-top:10px;font-size:14px;color:var(--sub);z-index:6}
 
 #heatHud{position:absolute;top:calc(52px + var(--safe-top));right:calc(10px + var(--safe-right));z-index:21;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
 #heatLabel{font-size:11px;color:var(--sub);padding:4px 8px;border-radius:999px;background:rgba(9,12,18,.58);border:1px solid var(--line)}
@@ -2162,3 +2162,5 @@ showTitle();
 </script>
 </body>
 </html>
+
+<style>@media (max-width: 430px){#sceneWrap{flex-basis:54%} #text{font-size:20px;line-height:1.8} .spot{font-size:14px;min-height:50px} #titleCard h1{font-size:30px}}</style>
